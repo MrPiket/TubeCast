@@ -56,7 +56,22 @@
       </form>
     </div>
 
-    <h3>Episodes (<%= episodes.length %>)</h3>
+    <div class="card" style="display: flex; align-items: center; justify-content: space-between;">
+      <div>
+        <h3 style="margin: 0;">Episodes (<%= episodes.length %>)</h3>
+        <% if (cachedCount > 0) { %>
+          <span style="color: var(--text-muted); font-size: 0.85rem;">
+            <%= cachedCount %> cached — <%= formatBytes(cachedSize) %>
+          </span>
+        <% } %>
+      </div>
+      <% if (cachedCount > 0) { %>
+        <form method="POST" action="/subscriptions/<%= subscription.id %>/clear-all-cache"
+              onsubmit="return confirm('Clear all cached audio files for this subscription?')">
+          <button type="submit" class="btn btn-danger">Clear All Cache</button>
+        </form>
+      <% } %>
+    </div>
 
     <% if (episodes.length === 0) { %>
       <div class="empty-state">
@@ -70,6 +85,7 @@
             <th>Date</th>
             <th>Duration</th>
             <th>Downloads</th>
+            <th>Cache</th>
             <th>Flags</th>
           </tr>
         </thead>
@@ -79,10 +95,29 @@
               <td>
                 <a href="https://www.youtube.com/watch?v=<%= ep.video_id %>"
                    target="_blank" rel="noopener"><%= ep.title %></a>
+                <div class="episode-actions">
+                  <button type="button" class="btn-icon" onclick="playEpisode(this, '<%= ep.video_id %>')" title="Play">&#9654;</button>
+                  <a href="/audio/<%= ep.video_id %>.mp3" download="<%= ep.title.replace(/"/g, '') %>.mp3" class="btn-icon" title="Download" onclick="downloadEpisode(this, '<%= ep.video_id %>')">&#11015;</a>
+                </div>
               </td>
               <td><%= ep.published_at ? new Date(ep.published_at * 1000).toLocaleDateString() : '—' %></td>
               <td><%= ep.duration_sec ? formatDuration(ep.duration_sec) : '—' %></td>
               <td><%= ep.download_count %></td>
+              <td>
+                <div class="cache-cell" data-video="<%= ep.video_id %>">
+                  <% if (ep.cached) { %>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                      <span class="badge" style="background:#1a3a1a;color:#6df26d;"><%= formatBytes(ep.cacheSize) %></span>
+                      <form method="POST" action="/subscriptions/<%= subscription.id %>/clear-cache/<%= ep.video_id %>"
+                            style="margin:0;">
+                        <button type="submit" class="btn btn-danger" style="padding:0.15rem 0.4rem;font-size:0.7rem;">X</button>
+                      </form>
+                    </div>
+                  <% } else { %>
+                    <span class="cache-status" style="color: var(--text-muted);">—</span>
+                  <% } %>
+                </div>
+              </td>
               <td>
                 <% if (ep.is_live) { %><span class="badge" style="background:#5c1a1a;color:#f26d6d;">live</span><% } %>
                 <% if (ep.is_short) { %><span class="badge" style="background:#1a5c3a;color:#6df2a8;">short</span><% } %>
@@ -92,9 +127,75 @@
         </tbody>
       </table>
     <% } %>
+    <div id="player-bar" style="display:none;">
+      <div id="player-title"></div>
+      <audio id="audio-player" controls preload="none"></audio>
+    </div>
   </main>
   <footer>TubeCast &mdash; YouTube to Podcast RSS</footer>
   <script>
+    var activePolls = {};
+
+    function pollProgress(videoId) {
+      if (activePolls[videoId]) return;
+      activePolls[videoId] = true;
+
+      var cell = document.querySelector('.cache-cell[data-video="' + videoId + '"]');
+      if (!cell) return;
+
+      var statusEl = cell.querySelector('.cache-status');
+      if (!statusEl) {
+        statusEl = document.createElement('span');
+        statusEl.className = 'cache-status';
+        cell.innerHTML = '';
+        cell.appendChild(statusEl);
+      }
+
+      var interval = setInterval(function() {
+        fetch('/audio/progress/' + videoId)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.status === 'downloading') {
+              statusEl.innerHTML = '<div class="progress-bar"><div class="progress-fill" style="width:' + data.percent + '%"></div></div><span class="progress-text">' + Math.round(data.percent) + '%</span>';
+            } else if (data.status === 'converting') {
+              statusEl.innerHTML = '<span class="badge" style="background:#3a3a1a;color:#f2d26d;">Converting...</span>';
+            } else if (data.status === 'done') {
+              clearInterval(interval);
+              delete activePolls[videoId];
+              statusEl.innerHTML = '<span class="badge" style="background:#1a3a1a;color:#6df26d;">Ready</span>';
+              // Reload after a moment to show file size and clear button
+              setTimeout(function() { location.reload(); }, 1500);
+            } else if (data.status === 'error') {
+              clearInterval(interval);
+              delete activePolls[videoId];
+              statusEl.innerHTML = '<span class="badge" style="background:#5c1a1a;color:#f26d6d;">Error</span>';
+            }
+          })
+          .catch(function() {});
+      }, 1000);
+    }
+
+    function playEpisode(btn, videoId) {
+      var row = btn.closest('tr');
+      var title = row.querySelector('td a').textContent;
+      var player = document.getElementById('audio-player');
+      var bar = document.getElementById('player-bar');
+      var titleEl = document.getElementById('player-title');
+
+      titleEl.textContent = title;
+      bar.style.display = 'block';
+
+      // Start polling progress
+      pollProgress(videoId);
+
+      player.src = '/audio/' + videoId + '.mp3';
+      player.play();
+    }
+
+    function downloadEpisode(link, videoId) {
+      pollProgress(videoId);
+    }
+
     function copyFeedUrl() {
       var text = document.getElementById('feed-url-text').textContent;
       navigator.clipboard.writeText(text).then(function() {
@@ -112,6 +213,12 @@
       var s = sec % 60;
       if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
       return m + ':' + String(s).padStart(2, '0');
+    }
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      var units = ['B', 'KB', 'MB', 'GB'];
+      var i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
     }
   %>
 </body>

@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const db = require('../db');
 const config = require('../config');
+const { findCachedFile, clearVideoCache } = require('./audio');
 
 const router = Router();
 
@@ -104,7 +105,26 @@ router.get('/subscriptions/:id', (req, res) => {
   }
   const episodes = db.getEpisodesBySubscription(sub.id);
   const feedUrl = `${config.FEED_BASE_URL}/feed/${sub.id}.xml`;
-  res.render('subscription-detail', { subscription: sub, episodes, feedUrl });
+
+  const fs = require('fs');
+
+  // Check cache status for each episode
+  const episodesWithCache = episodes.map(ep => {
+    const cachedPath = findCachedFile(ep.video_id);
+    let cacheSize = 0;
+    if (cachedPath) {
+      try { cacheSize = fs.statSync(cachedPath).size; } catch {}
+    }
+    return { ...ep, cached: !!cachedPath, cacheSize };
+  });
+
+  // Total cache stats for this subscription
+  const cachedCount = episodesWithCache.filter(e => e.cached).length;
+  const cachedSize = episodesWithCache.reduce((sum, e) => sum + e.cacheSize, 0);
+
+  res.render('subscription-detail', {
+    subscription: sub, episodes: episodesWithCache, feedUrl, cachedCount, cachedSize,
+  });
 });
 
 // Handle filter update from web form
@@ -123,6 +143,24 @@ router.post('/subscriptions/:id/filters', (req, res) => {
 
   db.updateFilters(sub.id, filters);
   res.redirect(`/subscriptions/${sub.id}`);
+});
+
+// Clear cache for a single episode
+router.post('/subscriptions/:id/clear-cache/:videoId', (req, res) => {
+  clearVideoCache(req.params.videoId);
+  res.redirect(`/subscriptions/${req.params.id}`);
+});
+
+// Clear all cache for a subscription's episodes
+router.post('/subscriptions/:id/clear-all-cache', (req, res) => {
+  const sub = db.getSubscription(req.params.id);
+  if (sub) {
+    const episodes = db.getEpisodesBySubscription(sub.id);
+    for (const ep of episodes) {
+      clearVideoCache(ep.video_id);
+    }
+  }
+  res.redirect(`/subscriptions/${req.params.id}`);
 });
 
 // Handle delete from web form
