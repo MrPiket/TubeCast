@@ -5,14 +5,15 @@
 }
 
 :root {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --surface-hover: #252525;
-  --border: #333;
-  --text: #e8e8e8;
-  --text-muted: #999;
-  --accent: #ff4444;
-  --accent-hover: #ff6666;
+  --bg: #1C202B;
+  --surface: #162150;
+  --surface-hover: #313B4D;
+  --border: #313B4D;
+  --text: #FFFFFF;
+  --text-muted: #546371;
+  --accent: #FF0000;
+  --accent-hover: #ff3333;
+  --highlight: #86BDFF;
   --success: #4caf50;
 }
 
@@ -26,12 +27,12 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--highlight);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--accent-hover);
+  color: #FFFFFF;
   text-decoration: underline;
 }
 
@@ -114,7 +115,7 @@ input[type="text"]:focus,
 input[type="url"]:focus,
 input[type="number"]:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--highlight);
 }
 
 button,
@@ -250,9 +251,9 @@ td {
   text-transform: uppercase;
 }
 
-.badge-channel { background: #1a3a5c; color: #6db3f2; }
-.badge-playlist { background: #3a1a5c; color: #b26df2; }
-.badge-video { background: #5c3a1a; color: #f2a86d; }
+.badge-channel { background: #162150; color: #86BDFF; }
+.badge-playlist { background: #2a1845; color: #b26df2; }
+.badge-video { background: #3d2010; color: #f2a86d; }
 
 .episode-actions {
   display: flex;
