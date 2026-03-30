@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= subscription.title %> — TubeCast</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="/">TubeCast</a></h1>
+    <nav>
+      <a href="/">New Feed</a>
+      <a href="/subscriptions">Subscriptions</a>
+    </nav>
+  </header>
+  <main>
+    <h2>
+      <span class="badge badge-<%= subscription.type %>"><%= subscription.type %></span>
+      <%= subscription.title %>
+    </h2>
+
+    <div class="card">
+      <div class="feed-url">
+        <span id="feed-url-text"><%= feedUrl %></span>
+        <button type="button" class="btn btn-secondary" onclick="copyFeedUrl()">Copy</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top: 0;">Filters</h3>
+      <form method="POST" action="/subscriptions/<%= subscription.id %>/filters" class="filters-form">
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="filter_lives" name="filter_lives" value="1"
+                 <%= subscription.filter_lives ? 'checked' : '' %>>
+          <label for="filter_lives" style="display: inline; margin: 0;">Include lives</label>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="filter_shorts" name="filter_shorts" value="1"
+                 <%= subscription.filter_shorts ? 'checked' : '' %>>
+          <label for="filter_shorts" style="display: inline; margin: 0;">Include shorts</label>
+        </div>
+        <div class="form-group">
+          <label for="filter_min_duration">Min duration (s)</label>
+          <input type="number" id="filter_min_duration" name="filter_min_duration"
+                 value="<%= subscription.filter_min_duration %>" min="0" style="width: 100px;">
+        </div>
+        <div class="form-group">
+          <label for="filter_max_duration">Max duration (s)</label>
+          <input type="number" id="filter_max_duration" name="filter_max_duration"
+                 value="<%= subscription.filter_max_duration %>" min="0" style="width: 100px;">
+        </div>
+        <div class="form-group">
+          <button type="submit" class="btn btn-primary">Save Filters</button>
+        </div>
+      </form>
+    </div>
+
+    <h3>Episodes (<%= episodes.length %>)</h3>
+
+    <% if (episodes.length === 0) { %>
+      <div class="empty-state">
+        <p>No episodes yet.</p>
+      </div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Date</th>
+            <th>Duration</th>
+            <th>Downloads</th>
+            <th>Flags</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% episodes.forEach(function(ep) { %>
+            <tr>
+              <td>
+                <a href="https://www.youtube.com/watch?v=<%= ep.video_id %>"
+                   target="_blank" rel="noopener"><%= ep.title %></a>
+              </td>
+              <td><%= ep.published_at ? new Date(ep.published_at * 1000).toLocaleDateString() : '—' %></td>
+              <td><%= ep.duration_sec ? formatDuration(ep.duration_sec) : '—' %></td>
+              <td><%= ep.download_count %></td>
+              <td>
+                <% if (ep.is_live) { %><span class="badge" style="background:#5c1a1a;color:#f26d6d;">live</span><% } %>
+                <% if (ep.is_short) { %><span class="badge" style="background:#1a5c3a;color:#6df2a8;">short</span><% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } %>
+  </main>
+  <footer>TubeCast &mdash; YouTube to Podcast RSS</footer>
+  <script>
+    function copyFeedUrl() {
+      var text = document.getElementById('feed-url-text').textContent;
+      navigator.clipboard.writeText(text).then(function() {
+        var btn = document.querySelector('.feed-url button');
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+  <%
+    function formatDuration(sec) {
+      if (!sec) return '—';
+      var h = Math.floor(sec / 3600);
+      var m = Math.floor((sec % 3600) / 60);
+      var s = sec % 60;
+      if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+      return m + ':' + String(s).padStart(2, '0');
+    }
+  %>
+</body>
+</html>

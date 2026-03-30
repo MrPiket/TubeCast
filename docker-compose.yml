@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5151:5151"
+    volumes:
+      - ./data:/data
+    environment:
+      - DATA_DIR=/data
+      - PORT=5151
+      - FEED_BASE_URL=http://localhost:5151
