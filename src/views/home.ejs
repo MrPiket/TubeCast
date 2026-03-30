@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TubeCast</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="/">TubeCast</a></h1>
+    <nav>
+      <a href="/">New Feed</a>
+      <a href="/subscriptions">Subscriptions</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Create a Podcast Feed</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        Paste a YouTube channel, playlist, or video URL to generate an RSS feed.
+      </p>
+      <form id="create-form" method="POST" action="/subscriptions/create">
+        <div class="form-group">
+          <label for="url">YouTube URL</label>
+          <input type="url" id="url" name="url" required
+                 placeholder="https://www.youtube.com/@channel or playlist URL">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Feed</button>
+      </form>
+    </div>
+
+    <% if (typeof result !== 'undefined' && result) { %>
+      <div class="result-box">
+        <p>Feed created successfully!</p>
+        <strong><%= result.title %></strong>
+        <div class="feed-url" style="margin-top: 0.5rem;">
+          <span id="feed-url-text"><%= result.feedUrl %></span>
+          <button type="button" class="btn btn-secondary" onclick="copyFeedUrl()">Copy</button>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="card" style="border-color: var(--accent); margin-top: 1rem;">
+        <p style="color: var(--accent); margin: 0;"><%= error %></p>
+      </div>
+    <% } %>
+  </main>
+  <footer>TubeCast &mdash; YouTube to Podcast RSS</footer>
+  <script>
+    function copyFeedUrl() {
+      var text = document.getElementById('feed-url-text').textContent;
+      navigator.clipboard.writeText(text).then(function() {
+        var btn = document.querySelector('.feed-url button');
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

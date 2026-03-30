@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscriptions — TubeCast</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="/">TubeCast</a></h1>
+    <nav>
+      <a href="/">New Feed</a>
+      <a href="/subscriptions">Subscriptions</a>
+    </nav>
+  </header>
+  <main>
+    <h2>Subscriptions</h2>
+
+    <% if (subscriptions.length === 0) { %>
+      <div class="empty-state">
+        <p>No subscriptions yet.</p>
+        <a href="/" class="btn btn-primary">Create your first feed</a>
+      </div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Created</th>
+            <th>Feed URL</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% subscriptions.forEach(function(sub) { %>
+            <tr>
+              <td><a href="/subscriptions/<%= sub.id %>"><%= sub.title %></a></td>
+              <td><span class="badge badge-<%= sub.type %>"><%= sub.type %></span></td>
+              <td><%= new Date(sub.created_at * 1000).toLocaleDateString() %></td>
+              <td>
+                <div class="feed-url">
+                  <span class="feed-text"><%= sub.feedUrl %></span>
+                  <button type="button" class="btn btn-secondary" onclick="copyText(this)">Copy</button>
+                </div>
+              </td>
+              <td>
+                <form method="POST" action="/subscriptions/<%= sub.id %>/delete"
+                      onsubmit="return confirm('Delete this subscription?')">
+                  <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } %>
+  </main>
+  <footer>TubeCast &mdash; YouTube to Podcast RSS</footer>
+  <script>
+    function copyText(btn) {
+      var text = btn.parentElement.querySelector('.feed-text').textContent;
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
