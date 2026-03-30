@@ -20,7 +20,7 @@ app.use('/api/subscriptions', require('./src/api/subscriptions'));
 app.use('/feed', require('./src/api/feed'));
 
 // Audio streaming
-app.use('/audio', require('./src/api/audio'));
+app.use('/audio', require('./src/api/audio').router);
 
 // Web views (must be last — catches / and /subscriptions/*)
 app.use('/', require('./src/api/views'));
