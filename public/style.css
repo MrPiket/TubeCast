@@ -5,16 +5,19 @@
 }
 
 :root {
-  --bg: #1C202B;
-  --surface: #162150;
-  --surface-hover: #313B4D;
-  --border: #313B4D;
-  --text: #FFFFFF;
+  --bg: #E8ECF1;
+  --surface: #FFFFFF;
+  --surface-hover: #F0F3F7;
+  --border: #D0D7DE;
+  --text: #162150;
   --text-muted: #546371;
-  --accent: #FF0000;
-  --accent-hover: #ff3333;
-  --highlight: #86BDFF;
-  --success: #4caf50;
+  --accent: #00B894;
+  --accent-hover: #00D4A8;
+  --highlight: #0097A7;
+  --success: #00B894;
+  --gradient-start: #162150;
+  --gradient-mid: #0097A7;
+  --gradient-end: #00E676;
 }
 
 body {
@@ -32,14 +35,14 @@ a {
 }
 
 a:hover {
-  color: #FFFFFF;
+  color: var(--gradient-start);
   text-decoration: underline;
 }
 
 header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 1rem 2rem;
+  padding: 0.6rem 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -51,22 +54,31 @@ header h1 {
 }
 
 header h1 a {
+  display: flex;
+  align-items: center;
   color: var(--text);
+}
+
+header h1 a img {
+  height: 40px;
+  width: auto;
 }
 
 header h1 a:hover {
   text-decoration: none;
-  color: var(--accent);
+  opacity: 0.85;
 }
 
 header nav a {
   margin-left: 1.5rem;
   color: var(--text-muted);
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 header nav a:hover {
   color: var(--text);
+  text-decoration: none;
 }
 
 main {
@@ -140,14 +152,14 @@ button,
 
 .btn-danger {
   background: transparent;
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  color: #E53935;
+  border: 1px solid #E53935;
   padding: 0.3rem 0.8rem;
   font-size: 0.8rem;
 }
 
 .btn-danger:hover {
-  background: var(--accent);
+  background: #E53935;
   color: #fff;
 }
 
@@ -233,7 +245,7 @@ td {
 }
 
 .checkbox-group input[type="checkbox"] {
-  accent-color: var(--accent);
+  accent-color: var(--highlight);
 }
 
 .empty-state {
@@ -251,9 +263,9 @@ td {
   text-transform: uppercase;
 }
 
-.badge-channel { background: #162150; color: #86BDFF; }
-.badge-playlist { background: #2a1845; color: #b26df2; }
-.badge-video { background: #3d2010; color: #f2a86d; }
+.badge-channel { background: #E3F2FD; color: #0D47A1; }
+.badge-playlist { background: #F3E5F5; color: #6A1B9A; }
+.badge-video { background: #FFF3E0; color: #E65100; }
 
 .episode-actions {
   display: flex;
