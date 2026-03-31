@@ -1,26 +1,32 @@
-const { Router } = require('express');
-const db = require('../db');
-const config = require('../config');
-const { findCachedFile, clearVideoCache } = require('./audio');
+import { Router, Request, Response } from 'express';
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import * as db from '../db';
+import * as yt from '../youtube';
+import config from '../config';
+import { findCachedFile, clearVideoCache } from './audio';
+import { Episode } from '../types';
 
 const router = Router();
 
-// Home page — create feed form
-router.get('/', (req, res) => {
+interface EpisodeWithCache extends Episode {
+  cached: boolean;
+  cacheSize: number;
+}
+
+// Home page
+router.get('/', (_req: Request, res: Response) => {
   res.render('home', { result: null, error: null });
 });
 
 // Handle create form submission
-router.post('/subscriptions/create', async (req, res) => {
+router.post('/subscriptions/create', async (req: Request, res: Response) => {
   try {
-    const { url } = req.body;
+    const { url } = req.body as { url?: string };
     if (!url) {
-      return res.render('home', { result: null, error: 'Please enter a URL.' });
+      res.render('home', { result: null, error: 'Please enter a URL.' });
+      return;
     }
-
-    // Use the API internally
-    const yt = require('../youtube');
-    const { v4: uuidv4 } = require('uuid');
 
     const parsed = yt.parseYoutubeUrl(url);
     const resolvedUrl = yt.resolveUrl(parsed);
@@ -28,11 +34,14 @@ router.post('/subscriptions/create', async (req, res) => {
     const entries = await yt.fetchMetadata(resolvedUrl, parsed.type, config.INITIAL_EPISODES);
 
     if (!entries || entries.length === 0) {
-      return res.render('home', { result: null, error: 'No videos found at the given URL.' });
+      res.render('home', { result: null, error: 'No videos found at the given URL.' });
+      return;
     }
 
     const firstEntry = entries[0];
-    let title, description, thumbnail;
+    let title: string;
+    let description: string;
+    let thumbnail: string;
 
     if (parsed.type === 'video') {
       title = firstEntry.title || 'Untitled Video';
@@ -82,13 +91,14 @@ router.post('/subscriptions/create', async (req, res) => {
     const feedUrl = `${config.FEED_BASE_URL}/feed/${subId}.xml`;
     res.render('home', { result: { title, feedUrl, id: subId }, error: null });
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] [views] Error creating subscription:`, err.message);
-    res.render('home', { result: null, error: err.message });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[${new Date().toISOString()}] [views] Error creating subscription:`, message);
+    res.render('home', { result: null, error: message });
   }
 });
 
 // Subscriptions list
-router.get('/subscriptions', (req, res) => {
+router.get('/subscriptions', (_req: Request, res: Response) => {
   const subs = db.getAllSubscriptions();
   const subscriptions = subs.map(s => ({
     ...s,
@@ -98,27 +108,24 @@ router.get('/subscriptions', (req, res) => {
 });
 
 // Subscription detail
-router.get('/subscriptions/:id', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+router.get('/subscriptions/:id', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (!sub) {
-    return res.status(404).send('Subscription not found');
+    res.status(404).send('Subscription not found');
+    return;
   }
   const episodes = db.getEpisodesBySubscription(sub.id);
   const feedUrl = `${config.FEED_BASE_URL}/feed/${sub.id}.xml`;
 
-  const fs = require('fs');
-
-  // Check cache status for each episode
-  const episodesWithCache = episodes.map(ep => {
+  const episodesWithCache: EpisodeWithCache[] = episodes.map(ep => {
     const cachedPath = findCachedFile(ep.video_id);
     let cacheSize = 0;
     if (cachedPath) {
-      try { cacheSize = fs.statSync(cachedPath).size; } catch {}
+      try { cacheSize = fs.statSync(cachedPath).size; } catch { /* ignore */ }
     }
     return { ...ep, cached: !!cachedPath, cacheSize };
   });
 
-  // Total cache stats for this subscription
   const cachedCount = episodesWithCache.filter(e => e.cached).length;
   const cachedSize = episodesWithCache.reduce((sum, e) => sum + e.cacheSize, 0);
 
@@ -127,16 +134,17 @@ router.get('/subscriptions/:id', (req, res) => {
   });
 });
 
-// Handle filter update from web form
-router.post('/subscriptions/:id/filters', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+// Handle filter update
+router.post('/subscriptions/:id/filters', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (!sub) {
-    return res.status(404).send('Subscription not found');
+    res.status(404).send('Subscription not found');
+    return;
   }
 
   const filters = {
-    filter_lives: req.body.filter_lives ? 1 : 0,
-    filter_shorts: req.body.filter_shorts ? 1 : 0,
+    filter_lives: req.body.filter_lives ? 1 as const : 0 as const,
+    filter_shorts: req.body.filter_shorts ? 1 as const : 0 as const,
     filter_min_duration: parseInt(req.body.filter_min_duration, 10) || 0,
     filter_max_duration: parseInt(req.body.filter_max_duration, 10) || 0,
   };
@@ -146,33 +154,33 @@ router.post('/subscriptions/:id/filters', (req, res) => {
 });
 
 // Clear cache for a single episode
-router.post('/subscriptions/:id/clear-cache/:videoId', (req, res) => {
-  clearVideoCache(req.params.videoId);
-  res.redirect(`/subscriptions/${req.params.id}`);
+router.post('/subscriptions/:id/clear-cache/:videoId', (req: Request, res: Response) => {
+  clearVideoCache(req.params.videoId as string);
+  res.redirect(`/subscriptions/${req.params.id as string}`);
 });
 
 // Clear all cache for a subscription's episodes
-router.post('/subscriptions/:id/clear-all-cache', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+router.post('/subscriptions/:id/clear-all-cache', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (sub) {
     const episodes = db.getEpisodesBySubscription(sub.id);
     for (const ep of episodes) {
       clearVideoCache(ep.video_id);
     }
   }
-  res.redirect(`/subscriptions/${req.params.id}`);
+  res.redirect(`/subscriptions/${req.params.id as string}`);
 });
 
-// Handle delete from web form
-router.post('/subscriptions/:id/delete', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+// Handle delete
+router.post('/subscriptions/:id/delete', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (sub) {
     db.deleteSubscription(sub.id);
   }
   res.redirect('/subscriptions');
 });
 
-function parseDateToTimestamp(dateStr) {
+function parseDateToTimestamp(dateStr: string | undefined): number | null {
   if (!dateStr) return null;
   if (/^\d{8}$/.test(dateStr)) {
     const y = dateStr.slice(0, 4);
@@ -184,4 +192,4 @@ function parseDateToTimestamp(dateStr) {
   return isNaN(ts) ? null : Math.floor(ts / 1000);
 }
 
-module.exports = router;
+export default router;
