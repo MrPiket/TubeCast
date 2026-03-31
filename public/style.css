@@ -64,6 +64,13 @@ header h1 a img {
   width: auto;
 }
 
+.logo-text {
+  display: none;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
 header h1 a:hover {
   text-decoration: none;
   opacity: 0.85;
@@ -273,6 +280,10 @@ td {
   margin-top: 0.3rem;
 }
 
+.ep-meta {
+  display: none;
+}
+
 .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -354,4 +365,153 @@ footer {
   padding: 2rem;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+/* ——— Responsive ——— */
+
+@media (max-width: 768px) {
+  header {
+    padding: 0.5rem 1rem;
+  }
+
+  header h1 a img {
+    height: 32px;
+  }
+
+  header nav a {
+    margin-left: 1rem;
+    font-size: 0.8rem;
+  }
+
+  main {
+    margin: 1rem auto;
+    padding: 0 0.75rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .feed-url {
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.75rem;
+  }
+
+  .filters-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters-form .form-group input[type="number"] {
+    width: 100% !important;
+  }
+
+  /* Subscriptions list: convert table to cards */
+  .sub-table thead {
+    display: none;
+  }
+
+  .sub-table,
+  .sub-table tbody,
+  .sub-table tr,
+  .sub-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .sub-table tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .sub-table td {
+    border: none;
+    padding: 0.25rem 0;
+  }
+
+  .sub-table td:before {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.15rem;
+  }
+
+  .sub-table td:nth-child(1):before { content: "Title"; }
+  .sub-table td:nth-child(2):before { content: "Type"; }
+  .sub-table td:nth-child(3):before { content: "Created"; }
+  .sub-table td:nth-child(4):before { content: "Feed URL"; }
+
+  .sub-table td:last-child {
+    margin-top: 0.5rem;
+  }
+
+  /* Episodes list: convert table to cards */
+  .ep-table thead {
+    display: none;
+  }
+
+  .ep-table,
+  .ep-table tbody,
+  .ep-table tr,
+  .ep-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .ep-table tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .ep-table td {
+    border: none;
+    padding: 0.2rem 0;
+  }
+
+  .ep-table td:first-child {
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+  }
+
+  .ep-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+  }
+
+  /* Header: show text, hide logo on mobile */
+  .logo-img { display: none; }
+  .logo-text { display: inline; }
+
+  /* Episodes header card */
+  .episodes-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+
+  /* Show mobile meta row, hide table columns 2-6 */
+  .ep-meta {
+    display: flex;
+  }
+
+  .ep-table td:nth-child(2),
+  .ep-table td:nth-child(3),
+  .ep-table td:nth-child(4),
+  .ep-table td:nth-child(5),
+  .ep-table td:nth-child(6) {
+    display: none;
+  }
 }

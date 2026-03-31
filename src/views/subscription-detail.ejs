@@ -8,7 +8,7 @@
 </head>
 <body>
   <header>
-    <h1><a href="/"><img src="/logo.png" alt="TubeCast"></a></h1>
+    <h1><a href="/"><img src="/logo.png" alt="TubeCast" class="logo-img"><span class="logo-text">TubeCast</span></a></h1>
     <nav>
       <a href="/">New Feed</a>
       <a href="/subscriptions">Subscriptions</a>
@@ -56,7 +56,7 @@
       </form>
     </div>
 
-    <div class="card" style="display: flex; align-items: center; justify-content: space-between;">
+    <div class="card episodes-header" style="display: flex; align-items: center; justify-content: space-between;">
       <div>
         <h3 style="margin: 0;">Episodes (<%= episodes.length %>)</h3>
         <% if (cachedCount > 0) { %>
@@ -78,7 +78,7 @@
         <p>No episodes yet.</p>
       </div>
     <% } else { %>
-      <table>
+      <table class="ep-table">
         <thead>
           <tr>
             <th>Title</th>
@@ -99,6 +99,12 @@
                   <button type="button" class="btn-icon" onclick="playEpisode(this, '<%= ep.video_id %>')" title="Play">&#9654;</button>
                   <a href="/audio/<%= ep.video_id %>.mp3" download="<%= ep.title.replace(/"/g, '') %>.mp3" class="btn-icon" title="Download" onclick="downloadEpisode(this, '<%= ep.video_id %>')">&#11015;</a>
                 </div>
+                <div class="ep-meta">
+                  <span><%= ep.published_at ? new Date(ep.published_at * 1000).toLocaleDateString() : '—' %></span>
+                  <span><%= ep.duration_sec ? formatDuration(ep.duration_sec) : '' %></span>
+                  <% if (ep.is_live) { %><span class="badge" style="background:#FFEBEE;color:#C62828;">live</span><% } %>
+                  <% if (ep.is_short) { %><span class="badge" style="background:#E8F5E9;color:#2E7D32;">short</span><% } %>
+                </div>
               </td>
               <td><%= ep.published_at ? new Date(ep.published_at * 1000).toLocaleDateString() : '—' %></td>
               <td><%= ep.duration_sec ? formatDuration(ep.duration_sec) : '—' %></td>
@@ -107,7 +113,7 @@
                 <div class="cache-cell" data-video="<%= ep.video_id %>">
                   <% if (ep.cached) { %>
                     <div style="display: flex; align-items: center; gap: 0.4rem;">
-                      <span class="badge" style="background:#1a3a1a;color:#6df26d;"><%= formatBytes(ep.cacheSize) %></span>
+                      <span class="badge" style="background:#E8F5E9;color:#2E7D32;"><%= formatBytes(ep.cacheSize) %></span>
                       <form method="POST" action="/subscriptions/<%= subscription.id %>/clear-cache/<%= ep.video_id %>"
                             style="margin:0;">
                         <button type="submit" class="btn btn-danger" style="padding:0.15rem 0.4rem;font-size:0.7rem;">X</button>
@@ -119,8 +125,8 @@
                 </div>
               </td>
               <td>
-                <% if (ep.is_live) { %><span class="badge" style="background:#5c1a1a;color:#f26d6d;">live</span><% } %>
-                <% if (ep.is_short) { %><span class="badge" style="background:#1a5c3a;color:#6df2a8;">short</span><% } %>
+                <% if (ep.is_live) { %><span class="badge" style="background:#FFEBEE;color:#C62828;">live</span><% } %>
+                <% if (ep.is_short) { %><span class="badge" style="background:#E8F5E9;color:#2E7D32;">short</span><% } %>
               </td>
             </tr>
           <% }); %>
