@@ -1,12 +1,10 @@
-const { execFile } = require('child_process');
-const { promisify } = require('util');
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { ParsedUrl, YtDlpVideo } from '../types';
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Parse a YouTube URL and return its type and ID.
- */
-function parseYoutubeUrl(url) {
+export function parseYoutubeUrl(url: string): ParsedUrl {
   const u = new URL(url);
   const hostname = u.hostname.replace('www.', '');
 
@@ -51,12 +49,8 @@ function parseYoutubeUrl(url) {
   throw new Error('Could not parse YouTube URL');
 }
 
-/**
- * Fetch metadata for a channel/playlist/video using yt-dlp --dump-json.
- * Returns { meta, entries } where meta has channel/playlist info and entries is an array of video metadata.
- */
-async function fetchMetadata(url, type, maxEntries = 10) {
-  const args = [
+export async function fetchMetadata(url: string, type: string, maxEntries: number = 10): Promise<YtDlpVideo[]> {
+  const args: string[] = [
     '--dump-json',
     '--no-download',
     '--playlist-end', String(maxEntries),
@@ -65,8 +59,10 @@ async function fetchMetadata(url, type, maxEntries = 10) {
   ];
 
   if (type === 'video') {
-    // For a single video, don't limit playlist entries
-    args.splice(args.indexOf('--playlist-end'), 2);
+    const idx = args.indexOf('--playlist-end');
+    if (idx !== -1) {
+      args.splice(idx, 2);
+    }
   }
 
   const { stdout } = await execFileAsync('yt-dlp', args, {
@@ -75,17 +71,14 @@ async function fetchMetadata(url, type, maxEntries = 10) {
   });
 
   const lines = stdout.trim().split('\n').filter(Boolean);
-  const entries = lines.map(line => JSON.parse(line));
+  const entries: YtDlpVideo[] = lines.map(line => JSON.parse(line) as YtDlpVideo);
 
   return entries;
 }
 
-/**
- * Fetch full metadata for a single video (non-flat, includes duration etc.).
- */
-async function fetchVideoMeta(videoId) {
+export async function fetchVideoMeta(videoId: string): Promise<YtDlpVideo> {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const args = [
+  const args: string[] = [
     '--dump-json',
     '--no-download',
     '--no-warnings',
@@ -97,13 +90,10 @@ async function fetchVideoMeta(videoId) {
     timeout: 60000,
   });
 
-  return JSON.parse(stdout.trim());
+  return JSON.parse(stdout.trim()) as YtDlpVideo;
 }
 
-/**
- * Resolve URL to a canonical form for yt-dlp fetching.
- */
-function resolveUrl(parsed) {
+export function resolveUrl(parsed: ParsedUrl): string {
   switch (parsed.type) {
     case 'channel':
       if (parsed.youtubeId.startsWith('@')) {
@@ -118,15 +108,11 @@ function resolveUrl(parsed) {
     case 'video':
       return `https://www.youtube.com/watch?v=${parsed.youtubeId}`;
     default:
-      throw new Error(`Unknown type: ${parsed.type}`);
+      throw new Error(`Unknown type: ${(parsed as ParsedUrl).type}`);
   }
 }
 
-/**
- * Detect if a video is a Short.
- * Heuristic: duration <= 60s AND (title contains #Shorts or aspect ratio is vertical).
- */
-function isShort(entry) {
+export function isShort(entry: YtDlpVideo): boolean {
   const duration = entry.duration || 0;
   if (duration > 60) return false;
   const title = entry.title || '';
@@ -137,52 +123,10 @@ function isShort(entry) {
   return false;
 }
 
-/**
- * Detect if a video is/was a live stream.
- */
-function isLive(entry) {
+export function isLive(entry: YtDlpVideo): boolean {
   return !!(entry.is_live || entry.was_live || entry.live_status === 'was_live');
 }
 
-/**
- * Extract a consistent video ID from a yt-dlp entry (flat or full).
- */
-function extractVideoId(entry) {
+export function extractVideoId(entry: YtDlpVideo): string | undefined {
   return entry.id || entry.url || entry.webpage_url?.split('v=')[1];
 }
-
-/**
- * Fetch channel/playlist metadata (title, description, thumbnail) by scraping the first entry
- * or using a separate yt-dlp call.
- */
-async function fetchContainerMeta(url) {
-  const args = [
-    '--dump-json',
-    '--no-download',
-    '--flat-playlist',
-    '--playlist-end', '1',
-    '--print', '%(playlist_title)s\n%(playlist_id)s\n%(playlist_uploader)s',
-    '--no-warnings',
-    url,
-  ];
-
-  try {
-    const { stdout } = await execFileAsync('yt-dlp', args, {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 60000,
-    });
-    return stdout;
-  } catch {
-    return null;
-  }
-}
-
-module.exports = {
-  parseYoutubeUrl,
-  fetchMetadata,
-  fetchVideoMeta,
-  resolveUrl,
-  isShort,
-  isLive,
-  extractVideoId,
-};
