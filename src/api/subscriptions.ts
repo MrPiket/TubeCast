@@ -1,17 +1,18 @@
-const { Router } = require('express');
-const { v4: uuidv4 } = require('uuid');
-const db = require('../db');
-const yt = require('../youtube');
-const config = require('../config');
+import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import * as db from '../db';
+import * as yt from '../youtube';
+import config from '../config';
 
 const router = Router();
 
-// POST /api/subscriptions — Create a new subscription
-router.post('/', async (req, res) => {
+// POST /api/subscriptions
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const { url } = req.body;
+    const { url } = req.body as { url?: string };
     if (!url) {
-      return res.status(400).json({ error: 'url is required' });
+      res.status(400).json({ error: 'url is required' });
+      return;
     }
 
     const parsed = yt.parseYoutubeUrl(url);
@@ -19,16 +20,17 @@ router.post('/', async (req, res) => {
 
     console.log(`[subscriptions] Creating subscription for ${parsed.type}: ${parsed.youtubeId}`);
 
-    // Fetch entries using yt-dlp
     const entries = await yt.fetchMetadata(resolvedUrl, parsed.type, config.INITIAL_EPISODES);
 
     if (!entries || entries.length === 0) {
-      return res.status(400).json({ error: 'No videos found at the given URL' });
+      res.status(400).json({ error: 'No videos found at the given URL' });
+      return;
     }
 
-    // Derive container metadata from entries
     const firstEntry = entries[0];
-    let title, description, thumbnail;
+    let title: string;
+    let description: string;
+    let thumbnail: string;
 
     if (parsed.type === 'video') {
       title = firstEntry.title || 'Untitled Video';
@@ -50,13 +52,12 @@ router.post('/', async (req, res) => {
       type: parsed.type,
       youtube_id: parsed.youtubeId,
       title,
-      description: description?.slice(0, 2000) || '',
+      description: (description || '').slice(0, 2000),
       thumbnail,
       original_url: url,
       created_at: now,
     });
 
-    // Insert episodes
     for (const entry of entries) {
       const videoId = yt.extractVideoId(entry);
       if (!videoId) continue;
@@ -68,7 +69,7 @@ router.post('/', async (req, res) => {
         title: entry.title || 'Untitled',
         description: (entry.description || '').slice(0, 2000),
         thumbnail: entry.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        published_at: entry.timestamp || entry.upload_date ? parseDateToTimestamp(entry.upload_date) : now,
+        published_at: entry.timestamp || (entry.upload_date ? parseDateToTimestamp(entry.upload_date) : now),
         duration_sec: entry.duration || null,
         is_live: yt.isLive(entry),
         is_short: yt.isShort(entry),
@@ -89,13 +90,14 @@ router.post('/', async (req, res) => {
       feedUrl,
     });
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] [subscriptions] Error creating subscription:`, err.message);
-    res.status(500).json({ error: err.message });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[${new Date().toISOString()}] [subscriptions] Error creating subscription:`, message);
+    res.status(500).json({ error: message });
   }
 });
 
-// GET /api/subscriptions — List all subscriptions
-router.get('/', (req, res) => {
+// GET /api/subscriptions
+router.get('/', (_req: Request, res: Response) => {
   const subs = db.getAllSubscriptions();
   res.json(subs.map(s => ({
     ...s,
@@ -103,11 +105,12 @@ router.get('/', (req, res) => {
   })));
 });
 
-// GET /api/subscriptions/:id — Get subscription detail with episodes
-router.get('/:id', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+// GET /api/subscriptions/:id
+router.get('/:id', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (!sub) {
-    return res.status(404).json({ error: 'Subscription not found' });
+    res.status(404).json({ error: 'Subscription not found' });
+    return;
   }
   const episodes = db.getEpisodesBySubscription(sub.id);
   res.json({
@@ -117,38 +120,45 @@ router.get('/:id', (req, res) => {
   });
 });
 
-// PATCH /api/subscriptions/:id/filters — Update filters
-router.patch('/:id/filters', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+// PATCH /api/subscriptions/:id/filters
+router.patch('/:id/filters', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (!sub) {
-    return res.status(404).json({ error: 'Subscription not found' });
+    res.status(404).json({ error: 'Subscription not found' });
+    return;
   }
 
-  const { filter_lives, filter_shorts, filter_min_duration, filter_max_duration } = req.body;
-  const filters = {};
+  const { filter_lives, filter_shorts, filter_min_duration, filter_max_duration } = req.body as {
+    filter_lives?: boolean | number;
+    filter_shorts?: boolean | number;
+    filter_min_duration?: string | number;
+    filter_max_duration?: string | number;
+  };
+
+  const filters: Record<string, number> = {};
   if (filter_lives !== undefined) filters.filter_lives = filter_lives ? 1 : 0;
   if (filter_shorts !== undefined) filters.filter_shorts = filter_shorts ? 1 : 0;
-  if (filter_min_duration !== undefined) filters.filter_min_duration = parseInt(filter_min_duration, 10) || 0;
-  if (filter_max_duration !== undefined) filters.filter_max_duration = parseInt(filter_max_duration, 10) || 0;
+  if (filter_min_duration !== undefined) filters.filter_min_duration = parseInt(String(filter_min_duration), 10) || 0;
+  if (filter_max_duration !== undefined) filters.filter_max_duration = parseInt(String(filter_max_duration), 10) || 0;
 
   db.updateFilters(sub.id, filters);
   const updated = db.getSubscription(sub.id);
   res.json(updated);
 });
 
-// DELETE /api/subscriptions/:id — Delete subscription
-router.delete('/:id', (req, res) => {
-  const sub = db.getSubscription(req.params.id);
+// DELETE /api/subscriptions/:id
+router.delete('/:id', (req: Request, res: Response) => {
+  const sub = db.getSubscription(req.params.id as string);
   if (!sub) {
-    return res.status(404).json({ error: 'Subscription not found' });
+    res.status(404).json({ error: 'Subscription not found' });
+    return;
   }
   db.deleteSubscription(sub.id);
   res.json({ ok: true });
 });
 
-function parseDateToTimestamp(dateStr) {
+function parseDateToTimestamp(dateStr: string): number | null {
   if (!dateStr) return null;
-  // yt-dlp returns dates as YYYYMMDD
   if (/^\d{8}$/.test(dateStr)) {
     const y = dateStr.slice(0, 4);
     const m = dateStr.slice(4, 6);
@@ -159,4 +169,4 @@ function parseDateToTimestamp(dateStr) {
   return isNaN(ts) ? null : Math.floor(ts / 1000);
 }
 
-module.exports = router;
+export default router;

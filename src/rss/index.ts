@@ -1,9 +1,7 @@
-const config = require('../config');
+import config from '../config';
+import { Subscription, Episode } from '../types';
 
-/**
- * Escape XML special characters.
- */
-function escXml(str) {
+function escXml(str: string | null | undefined): string {
   if (!str) return '';
   return String(str)
     .replace(/&/g, '&amp;')
@@ -13,10 +11,7 @@ function escXml(str) {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * Format seconds as HH:MM:SS for itunes:duration.
- */
-function formatDuration(seconds) {
+function formatDuration(seconds: number | null | undefined): string {
   if (!seconds || seconds <= 0) return '0:00';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -27,18 +22,12 @@ function formatDuration(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/**
- * Format a Unix timestamp as RFC 2822 date string.
- */
-function toRfc2822(timestamp) {
+function toRfc2822(timestamp: number | null | undefined): string {
   if (!timestamp) return '';
   return new Date(timestamp * 1000).toUTCString();
 }
 
-/**
- * Generate an RSS 2.0 XML feed for a subscription and its episodes.
- */
-function generateFeed(subscription, episodes) {
+export function generateFeed(subscription: Subscription, episodes: Episode[]): string {
   const feedUrl = `${config.FEED_BASE_URL}/feed/${subscription.id}.xml`;
 
   const items = episodes.map(ep => {
@@ -73,5 +62,3 @@ ${items}
   </channel>
 </rss>`;
 }
-
-module.exports = { generateFeed };

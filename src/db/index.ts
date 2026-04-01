@@ -1,11 +1,12 @@
-const Database = require('better-sqlite3');
-const fs = require('fs');
-const config = require('../config');
-const { migrate } = require('./schema');
+import Database from 'better-sqlite3';
+import fs from 'fs';
+import config from '../config';
+import { migrate } from './schema';
+import { Subscription, Episode, CreateSubscriptionInput, CreateEpisodeInput, FilterInput } from '../types';
 
-let db;
+let db: Database.Database | null = null;
 
-function getDb() {
+export function getDb(): Database.Database {
   if (!db) {
     fs.mkdirSync(config.DATA_DIR, { recursive: true });
     db = new Database(config.DB_PATH);
@@ -16,7 +17,7 @@ function getDb() {
 
 // --- Subscriptions ---
 
-function createSubscription(sub) {
+export function createSubscription(sub: CreateSubscriptionInput): void {
   const stmt = getDb().prepare(`
     INSERT INTO subscriptions (id, type, youtube_id, title, description, thumbnail, original_url, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -24,24 +25,25 @@ function createSubscription(sub) {
   stmt.run(sub.id, sub.type, sub.youtube_id, sub.title, sub.description, sub.thumbnail, sub.original_url, sub.created_at);
 }
 
-function getAllSubscriptions() {
-  return getDb().prepare('SELECT * FROM subscriptions ORDER BY created_at DESC').all();
+export function getAllSubscriptions(): Subscription[] {
+  return getDb().prepare('SELECT * FROM subscriptions ORDER BY created_at DESC').all() as Subscription[];
 }
 
-function getSubscription(id) {
-  return getDb().prepare('SELECT * FROM subscriptions WHERE id = ?').get(id);
+export function getSubscription(id: string): Subscription | undefined {
+  return getDb().prepare('SELECT * FROM subscriptions WHERE id = ?').get(id) as Subscription | undefined;
 }
 
-function deleteSubscription(id) {
+export function deleteSubscription(id: string): void {
   getDb().prepare('DELETE FROM subscriptions WHERE id = ?').run(id);
 }
 
-function updateFilters(id, filters) {
-  const fields = [];
-  const values = [];
+export function updateFilters(id: string, filters: FilterInput): void {
+  const fields: string[] = [];
+  const values: (number | string)[] = [];
+  const allowed = ['filter_lives', 'filter_shorts', 'filter_min_duration', 'filter_max_duration'];
+
   for (const [key, val] of Object.entries(filters)) {
-    const allowed = ['filter_lives', 'filter_shorts', 'filter_min_duration', 'filter_max_duration'];
-    if (allowed.includes(key)) {
+    if (allowed.includes(key) && val !== undefined) {
       fields.push(`${key} = ?`);
       values.push(val);
     }
@@ -51,13 +53,13 @@ function updateFilters(id, filters) {
   getDb().prepare(`UPDATE subscriptions SET ${fields.join(', ')} WHERE id = ?`).run(...values);
 }
 
-function updateLastChecked(id, timestamp) {
+export function updateLastChecked(id: string, timestamp: number): void {
   getDb().prepare('UPDATE subscriptions SET last_checked_at = ? WHERE id = ?').run(timestamp, id);
 }
 
 // --- Episodes ---
 
-function insertEpisode(ep) {
+export function insertEpisode(ep: CreateEpisodeInput): void {
   const stmt = getDb().prepare(`
     INSERT OR IGNORE INTO episodes (id, subscription_id, video_id, title, description, thumbnail, published_at, duration_sec, is_live, is_short, download_count, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
@@ -65,13 +67,13 @@ function insertEpisode(ep) {
   stmt.run(ep.id, ep.subscription_id, ep.video_id, ep.title, ep.description, ep.thumbnail, ep.published_at, ep.duration_sec, ep.is_live ? 1 : 0, ep.is_short ? 1 : 0, ep.created_at);
 }
 
-function getEpisodesBySubscription(subscriptionId) {
-  return getDb().prepare('SELECT * FROM episodes WHERE subscription_id = ? ORDER BY published_at DESC').all(subscriptionId);
+export function getEpisodesBySubscription(subscriptionId: string): Episode[] {
+  return getDb().prepare('SELECT * FROM episodes WHERE subscription_id = ? ORDER BY published_at DESC').all(subscriptionId) as Episode[];
 }
 
-function getFilteredEpisodes(subscription) {
-  let conditions = ['subscription_id = ?'];
-  let params = [subscription.id];
+export function getFilteredEpisodes(subscription: Subscription): Episode[] {
+  const conditions: string[] = ['subscription_id = ?'];
+  const params: (string | number)[] = [subscription.id];
 
   if (!subscription.filter_lives) {
     conditions.push('is_live = 0');
@@ -89,37 +91,21 @@ function getFilteredEpisodes(subscription) {
   }
 
   const where = conditions.join(' AND ');
-  return getDb().prepare(`SELECT * FROM episodes WHERE ${where} ORDER BY published_at DESC`).all(...params);
+  return getDb().prepare(`SELECT * FROM episodes WHERE ${where} ORDER BY published_at DESC`).all(...params) as Episode[];
 }
 
-function episodeExists(videoId, subscriptionId) {
+export function episodeExists(videoId: string, subscriptionId: string): boolean {
   const row = getDb().prepare('SELECT 1 FROM episodes WHERE video_id = ? AND subscription_id = ?').get(videoId, subscriptionId);
   return !!row;
 }
 
-function incrementDownloadCount(videoId) {
+export function incrementDownloadCount(videoId: string): void {
   getDb().prepare('UPDATE episodes SET download_count = download_count + 1 WHERE video_id = ?').run(videoId);
 }
 
-function closeDb() {
+export function closeDb(): void {
   if (db) {
     db.close();
     db = null;
   }
 }
-
-module.exports = {
-  getDb,
-  createSubscription,
-  getAllSubscriptions,
-  getSubscription,
-  deleteSubscription,
-  updateFilters,
-  updateLastChecked,
-  insertEpisode,
-  getEpisodesBySubscription,
-  getFilteredEpisodes,
-  episodeExists,
-  incrementDownloadCount,
-  closeDb,
-};
