@@ -1,4 +1,11 @@
-const MIGRATIONS = [
+import Database from 'better-sqlite3';
+
+interface Migration {
+  version: number;
+  up: string;
+}
+
+const MIGRATIONS: Migration[] = [
   {
     version: 1,
     up: `
@@ -39,7 +46,7 @@ const MIGRATIONS = [
   },
 ];
 
-function migrate(db) {
+export function migrate(db: Database.Database): void {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
@@ -49,7 +56,7 @@ function migrate(db) {
     );
   `);
 
-  const row = db.prepare('SELECT MAX(version) as v FROM schema_version').get();
+  const row = db.prepare('SELECT MAX(version) as v FROM schema_version').get() as { v: number | null } | undefined;
   const currentVersion = row?.v || 0;
 
   for (const migration of MIGRATIONS) {
@@ -60,5 +67,3 @@ function migrate(db) {
     }
   }
 }
-
-module.exports = { migrate };

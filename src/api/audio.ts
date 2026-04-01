@@ -1,54 +1,40 @@
-const { Router } = require('express');
-const { spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const db = require('../db');
-const config = require('../config');
+import { Router, Request, Response } from 'express';
+import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import * as db from '../db';
+import config from '../config';
+import { DownloadProgress } from '../types';
 
 const router = Router();
 
-const CACHE_DIR = path.join(config.DATA_DIR, 'audio-cache');
+const CACHE_DIR: string = path.join(config.DATA_DIR, 'audio-cache');
 
-// In-memory download progress tracking
-// { videoId: { status: 'downloading'|'converting'|'done'|'error', percent: 0-100 } }
-const downloads = {};
+const downloads: Record<string, DownloadProgress> = {};
 
-// Ensure cache directory exists
 if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
-/**
- * Find all files in CACHE_DIR that belong to a given videoId.
- */
-function findFilesForVideo(videoId) {
+function findFilesForVideo(videoId: string): string[] {
   return fs.readdirSync(CACHE_DIR).filter(f => f.startsWith(videoId));
 }
 
-/**
- * Find the final cached mp3 for a videoId (not .part files).
- */
-function findCachedFile(videoId) {
+function findCachedFile(videoId: string): string | null {
   const files = findFilesForVideo(videoId).filter(f => f.endsWith('.mp3') && !f.includes('.part'));
   return files.length > 0 ? path.join(CACHE_DIR, files[0]) : null;
 }
 
-/**
- * Remove all files in CACHE_DIR that belong to a given videoId.
- */
-function clearVideoCache(videoId) {
+function clearVideoCache(videoId: string): number {
   let count = 0;
   for (const file of findFilesForVideo(videoId)) {
-    try { fs.unlinkSync(path.join(CACHE_DIR, file)); count++; } catch {}
+    try { fs.unlinkSync(path.join(CACHE_DIR, file)); count++; } catch { /* ignore */ }
   }
   return count;
 }
 
-/**
- * Download a video as mp3, tracking progress. Returns a promise.
- */
-function downloadVideo(videoId) {
-  return new Promise((resolve, reject) => {
+function downloadVideo(videoId: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const outputTemplate = path.join(CACHE_DIR, `${videoId}.%(ext)s`);
 
     downloads[videoId] = { status: 'downloading', percent: 0 };
@@ -64,18 +50,16 @@ function downloadVideo(videoId) {
       `https://www.youtube.com/watch?v=${videoId}`,
     ]);
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr.on('data', (data: Buffer) => {
       const line = data.toString().trim();
       if (!line) return;
 
-      // yt-dlp progress: [download]  45.2% of 10.00MiB ...
       const match = line.match(/\[download\]\s+([\d.]+)%/);
       if (match) {
         downloads[videoId] = { status: 'downloading', percent: Number.parseFloat(match[1]) };
         return;
       }
 
-      // Post-processing / conversion
       if (line.includes('[ExtractAudio]') || line.includes('[Postprocess') || line.includes('[ffmpeg]')) {
         downloads[videoId] = { status: 'converting', percent: 100 };
         return;
@@ -84,7 +68,7 @@ function downloadVideo(videoId) {
       console.error(`[${new Date().toISOString()}] [yt-dlp] ${line}`);
     });
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout.on('data', (data: Buffer) => {
       const line = data.toString().trim();
       if (!line) return;
 
@@ -105,7 +89,7 @@ function downloadVideo(videoId) {
       reject(new Error('Download timed out'));
     }, 600000);
 
-    proc.on('close', (code) => {
+    proc.on('close', (code: number | null) => {
       clearTimeout(timeout);
       if (code === 0) {
         downloads[videoId] = { status: 'done', percent: 100 };
@@ -116,7 +100,7 @@ function downloadVideo(videoId) {
       }
     });
 
-    proc.on('error', (err) => {
+    proc.on('error', (err: Error) => {
       clearTimeout(timeout);
       downloads[videoId] = { status: 'error', percent: 0 };
       reject(err);
@@ -124,8 +108,7 @@ function downloadVideo(videoId) {
   });
 }
 
-// Clean up cached audio files older than the configured TTL
-function cleanupCache() {
+function cleanupCache(): void {
   const maxAge = config.AUDIO_CACHE_TTL_HOURS * 60 * 60 * 1000;
   const now = Date.now();
 
@@ -152,38 +135,37 @@ function cleanupCache() {
   }
 }
 
-// Run cleanup every hour
 cleanupCache();
 setInterval(cleanupCache, 60 * 60 * 1000);
 
-// GET /audio/progress/:videoId — Get download progress
-router.get('/progress/:videoId', (req, res) => {
-  const { videoId } = req.params;
+// GET /audio/progress/:videoId
+router.get('/progress/:videoId', (req: Request, res: Response) => {
+  const videoId = req.params.videoId as string;
   const cached = !!findCachedFile(videoId);
   if (cached) {
-    return res.json({ status: 'done', percent: 100 });
+    res.json({ status: 'done', percent: 100 });
+    return;
   }
   const progress = downloads[videoId];
   if (progress) {
-    return res.json(progress);
+    res.json(progress);
+    return;
   }
   res.json({ status: 'none', percent: 0 });
 });
 
-// GET /audio/:videoId.mp3 — Serve audio with proper headers for podcast apps
-router.get('/:videoId.mp3', async (req, res) => {
-  const { videoId } = req.params;
+// GET /audio/:videoId.mp3
+router.get('/:videoId.mp3', async (req: Request, res: Response) => {
+  const videoId = req.params.videoId as string;
 
   try {
     let filePath = findCachedFile(videoId);
 
-    // Download if not already cached
     if (!filePath) {
       console.log(`[audio] Downloading ${videoId}`);
 
       await downloadVideo(videoId);
 
-      // Find the resulting file and rename to a clean name
       filePath = findCachedFile(videoId);
       if (filePath) {
         const cleanPath = path.join(CACHE_DIR, `${videoId}.mp3`);
@@ -197,19 +179,16 @@ router.get('/:videoId.mp3', async (req, res) => {
         throw new Error('Download completed but output file not found');
       }
 
-      // Clean up progress after a delay
       setTimeout(() => { delete downloads[videoId]; }, 60000);
 
       console.log(`[audio] Downloaded ${videoId}`);
     }
 
-    // Increment download counter
     db.incrementDownloadCount(videoId);
 
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
 
-    // Handle range requests (seeking, resuming)
     const range = req.headers.range;
     if (range) {
       const parts = range.replace(/bytes=/, '').split('-');
@@ -235,7 +214,8 @@ router.get('/:videoId.mp3', async (req, res) => {
       fs.createReadStream(filePath).pipe(res);
     }
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] [audio] Error for ${videoId}:`, err.message);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[${new Date().toISOString()}] [audio] Error for ${videoId}:`, message);
     clearVideoCache(videoId);
     if (!res.headersSent) {
       res.status(502).json({ error: 'Failed to load audio' });
@@ -243,30 +223,31 @@ router.get('/:videoId.mp3', async (req, res) => {
   }
 });
 
-// DELETE /audio/cache — Clear all cached files
-router.delete('/cache', (req, res) => {
+// DELETE /audio/cache
+router.delete('/cache', (_req: Request, res: Response) => {
   let count = 0;
   for (const file of fs.readdirSync(CACHE_DIR)) {
-    try { fs.unlinkSync(path.join(CACHE_DIR, file)); count++; } catch {}
+    try { fs.unlinkSync(path.join(CACHE_DIR, file)); count++; } catch { /* ignore */ }
   }
   console.log(`[audio] Cleared ${count} cached file(s)`);
   res.json({ cleared: count });
 });
 
-// DELETE /audio/cache/:videoId — Clear a single cached file
-router.delete('/cache/:videoId', (req, res) => {
-  const count = clearVideoCache(req.params.videoId);
+// DELETE /audio/cache/:videoId
+router.delete('/cache/:videoId', (req: Request, res: Response) => {
+  const videoId = req.params.videoId as string;
+  const count = clearVideoCache(videoId);
   if (count > 0) {
-    console.log(`[audio] Cleared cache for ${req.params.videoId}`);
+    console.log(`[audio] Cleared cache for ${videoId}`);
   }
   res.json({ cleared: count > 0 });
 });
 
-// GET /audio/cache/info — Get cache stats
-router.get('/cache/info', (req, res) => {
+// GET /audio/cache/info
+router.get('/cache/info', (_req: Request, res: Response) => {
   const files = fs.readdirSync(CACHE_DIR).filter(f => f.endsWith('.mp3') && !f.includes('.part'));
   let totalSize = 0;
-  const cached = [];
+  const cached: Array<{ videoId: string; size: number; cachedAt: number }> = [];
 
   for (const file of files) {
     const filePath = path.join(CACHE_DIR, file);
@@ -278,10 +259,10 @@ router.get('/cache/info', (req, res) => {
         size: stat.size,
         cachedAt: stat.mtimeMs,
       });
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   res.json({ count: cached.length, totalSize, files: cached });
 });
 
-module.exports = { router, CACHE_DIR, findCachedFile, clearVideoCache };
+export { router, CACHE_DIR, findCachedFile, clearVideoCache };

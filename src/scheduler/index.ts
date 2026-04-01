@@ -1,10 +1,11 @@
-const cron = require('node-cron');
-const { v4: uuidv4 } = require('uuid');
-const db = require('../db');
-const yt = require('../youtube');
-const config = require('../config');
+import cron from 'node-cron';
+import { v4 as uuidv4 } from 'uuid';
+import * as db from '../db';
+import * as yt from '../youtube';
+import config from '../config';
+import { Subscription, YtDlpVideo } from '../types';
 
-function start() {
+export function start(): void {
   const cronExpr = `*/${config.POLL_INTERVAL_MINUTES} * * * *`;
 
   console.log(`[scheduler] Polling every ${config.POLL_INTERVAL_MINUTES} minutes`);
@@ -18,7 +19,8 @@ function start() {
       try {
         await pollSubscription(sub);
       } catch (err) {
-        console.error(`[${new Date().toISOString()}] [scheduler] Error polling ${sub.id} (${sub.title}):`, err.message);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[${new Date().toISOString()}] [scheduler] Error polling ${sub.id} (${sub.title}):`, message);
       }
     }
 
@@ -26,9 +28,8 @@ function start() {
   });
 }
 
-async function pollSubscription(sub) {
+async function pollSubscription(sub: Subscription): Promise<void> {
   if (sub.type === 'video') {
-    // Single video subscriptions don't need polling
     return;
   }
 
@@ -69,7 +70,7 @@ async function pollSubscription(sub) {
   }
 }
 
-function parseDateToTimestamp(dateStr) {
+function parseDateToTimestamp(dateStr: string): number | null {
   if (!dateStr) return null;
   if (/^\d{8}$/.test(dateStr)) {
     const y = dateStr.slice(0, 4);
@@ -80,5 +81,3 @@ function parseDateToTimestamp(dateStr) {
   const ts = Date.parse(dateStr);
   return isNaN(ts) ? null : Math.floor(ts / 1000);
 }
-
-module.exports = { start };
