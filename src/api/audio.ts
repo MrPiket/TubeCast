@@ -265,4 +265,4 @@ router.get('/cache/info', (_req: Request, res: Response) => {
   res.json({ count: cached.length, totalSize, files: cached });
 });
 
-export { router, CACHE_DIR, findCachedFile, clearVideoCache };
+export { router, CACHE_DIR, findCachedFile, clearVideoCache, downloadVideo };
