@@ -1,3 +1,21 @@
 node_modules/
 data/
 dist/
+
+# Environment
+.env
+.env.*
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

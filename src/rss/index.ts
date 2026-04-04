@@ -11,6 +11,11 @@ function escXml(str: string | null | undefined): string {
     .replace(/'/g, '&apos;');
 }
 
+function escCdata(str: string | null | undefined): string {
+  if (!str) return '';
+  return String(str).replace(/\]\]>/g, ']]]]><![CDATA[>');
+}
+
 function formatDuration(seconds: number | null | undefined): string {
   if (!seconds || seconds <= 0) return '0:00';
   const h = Math.floor(seconds / 3600);
@@ -34,7 +39,7 @@ export function generateFeed(subscription: Subscription, episodes: Episode[]): s
     const audioUrl = `${config.FEED_BASE_URL}/audio/${escXml(ep.video_id)}.mp3`;
     return `    <item>
       <title>${escXml(ep.title)}</title>
-      <description><![CDATA[${ep.description || ''}]]></description>
+      <description><![CDATA[${escCdata(ep.description)}]]></description>
       <guid isPermaLink="false">yt:${escXml(ep.video_id)}</guid>
       <pubDate>${toRfc2822(ep.published_at)}</pubDate>
       <enclosure url="${audioUrl}" type="audio/mpeg" length="0"/>
@@ -51,7 +56,7 @@ export function generateFeed(subscription: Subscription, episodes: Episode[]): s
   <channel>
     <title>${escXml(subscription.title)}</title>
     <link>${escXml(subscription.original_url)}</link>
-    <description><![CDATA[${subscription.description || ''}]]></description>
+    <description><![CDATA[${escCdata(subscription.description)}]]></description>
     <language>en</language>
     <atom:link href="${escXml(feedUrl)}" rel="self" type="application/rss+xml"/>
     <itunes:image href="${escXml(subscription.thumbnail)}"/>

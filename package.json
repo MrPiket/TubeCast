@@ -1,7 +1,7 @@
 {
   "name": "tubecast",
   "version": "1.0.0",
-  "description": "",
+  "description": "Turn YouTube channels, playlists, and videos into podcast RSS feeds",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -9,8 +9,8 @@
     "dev": "tsx src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["youtube", "podcast", "rss", "yt-dlp", "audio"],
+  "author": "Sergio Riesgo",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {

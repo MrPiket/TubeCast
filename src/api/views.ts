@@ -91,9 +91,8 @@ router.post('/subscriptions/create', async (req: Request, res: Response) => {
     const feedUrl = `${config.FEED_BASE_URL}/feed/${subId}.xml`;
     res.render('home', { result: { title, feedUrl, id: subId }, error: null });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[${new Date().toISOString()}] [views] Error creating subscription:`, message);
-    res.render('home', { result: null, error: message });
+    console.error(`[${new Date().toISOString()}] [views] Error creating subscription:`, err instanceof Error ? err.message : String(err));
+    res.render('home', { result: null, error: 'Failed to create subscription. Please check the URL and try again.' });
   }
 });
 
