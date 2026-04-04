@@ -60,8 +60,9 @@ All config is via environment variables (see `src/config.ts`):
 ## Docker
 
 - **Image:** `mrpiket/tubecast` on Docker Hub
-- **Build:** `docker build -t mrpiket/tubecast:latest .`
+- **Build:** `docker buildx build --platform linux/amd64 -t mrpiket/tubecast:latest .`
 - **Push:** `docker push mrpiket/tubecast:latest`
+- **Important:** Always build with `--platform linux/amd64` — the production server runs amd64 and ARM images will fail with `exec format error`
 - **Run with compose:** `docker compose up` (maps port 5151, mounts `./data` for persistence)
 - The Dockerfile installs `yt-dlp` and `ffmpeg` inside the image so no host dependencies are needed
 - `docker-compose.yml` sets `DATA_DIR=/data`, `PORT=5151`, and `FEED_BASE_URL=http://localhost:5151`
@@ -70,4 +71,4 @@ All config is via environment variables (see `src/config.ts`):
 
 1. Make changes on a feature branch
 2. Create PR and merge to `main`
-3. Build and push Docker image: `docker build -t mrpiket/tubecast:latest . && docker push mrpiket/tubecast:latest`
+3. Build and push Docker image: `docker buildx build --platform linux/amd64 -t mrpiket/tubecast:latest --push .`
