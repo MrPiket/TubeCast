@@ -4,6 +4,7 @@ import * as db from '../db';
 import * as yt from '../youtube';
 import config from '../config';
 import { Subscription, YtDlpVideo } from '../types';
+import { findCachedFile, clearVideoCache, downloadVideo } from '../api/audio';
 
 export function start(): void {
   const cronExpr = `*/${config.POLL_INTERVAL_MINUTES} * * * *`;
@@ -67,6 +68,37 @@ async function pollSubscription(sub: Subscription): Promise<void> {
 
   if (newCount > 0) {
     console.log(`[scheduler] Found ${newCount} new episodes for "${sub.title}"`);
+  }
+
+  await proactivelyDownloadEpisodes(sub);
+}
+
+const PROACTIVE_DOWNLOAD_COUNT = 5;
+
+async function proactivelyDownloadEpisodes(sub: Subscription): Promise<void> {
+  const episodes = db.getFilteredEpisodes(sub);
+  const target = episodes.slice(0, PROACTIVE_DOWNLOAD_COUNT);
+  const evictable = episodes.slice(PROACTIVE_DOWNLOAD_COUNT);
+
+  // Evict cached episodes beyond top 5
+  for (const ep of evictable) {
+    if (findCachedFile(ep.video_id)) {
+      clearVideoCache(ep.video_id);
+      console.log(`[scheduler] Evicted cached audio for "${ep.title}" (${ep.video_id})`);
+    }
+  }
+
+  // Download missing episodes in the top 5
+  for (const ep of target) {
+    if (findCachedFile(ep.video_id)) continue;
+    try {
+      console.log(`[scheduler] Proactively downloading "${ep.title}" (${ep.video_id})`);
+      await downloadVideo(ep.video_id);
+      console.log(`[scheduler] Downloaded "${ep.title}" (${ep.video_id})`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[scheduler] Failed to download ${ep.video_id}: ${message}`);
+    }
   }
 }
 
