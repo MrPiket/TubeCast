@@ -53,5 +53,21 @@ All config is via environment variables (see `src/config.ts`):
 
 - Timestamps are stored as Unix epoch seconds (not milliseconds) throughout the codebase
 - Boolean fields in SQLite use `0`/`1` integers; TypeScript types reflect this with `0 | 1`
-- Audio files are downloaded on first request (not eagerly) and cached to disk; the cache is cleaned hourly
+- The scheduler proactively downloads audio for the 5 most recent filtered episodes per subscription; older cached files beyond the top 5 are evicted automatically
+- Audio for episodes outside the top 5 is still available on-demand via `/audio/:videoId.mp3`
 - The `yt-dlp` process is spawned directly (not via a library) in both `youtube/` (metadata) and `api/audio.ts` (download)
+
+## Docker
+
+- **Image:** `mrpiket/tubecast` on Docker Hub
+- **Build:** `docker build -t mrpiket/tubecast:latest .`
+- **Push:** `docker push mrpiket/tubecast:latest`
+- **Run with compose:** `docker compose up` (maps port 5151, mounts `./data` for persistence)
+- The Dockerfile installs `yt-dlp` and `ffmpeg` inside the image so no host dependencies are needed
+- `docker-compose.yml` sets `DATA_DIR=/data`, `PORT=5151`, and `FEED_BASE_URL=http://localhost:5151`
+
+## Deploy workflow
+
+1. Make changes on a feature branch
+2. Create PR and merge to `main`
+3. Build and push Docker image: `docker build -t mrpiket/tubecast:latest . && docker push mrpiket/tubecast:latest`
