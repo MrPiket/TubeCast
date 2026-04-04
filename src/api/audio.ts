@@ -5,12 +5,15 @@ import path from 'path';
 import * as db from '../db';
 import config from '../config';
 import { DownloadProgress } from '../types';
+import { isValidVideoId } from '../validate';
 
 const router = Router();
 
 const CACHE_DIR: string = path.join(config.DATA_DIR, 'audio-cache');
 
 const downloads: Record<string, DownloadProgress> = {};
+const MAX_CONCURRENT_DOWNLOADS = 3;
+let activeDownloads = 0;
 
 if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -34,6 +37,11 @@ function clearVideoCache(videoId: string): number {
 }
 
 function downloadVideo(videoId: string): Promise<void> {
+  if (activeDownloads >= MAX_CONCURRENT_DOWNLOADS) {
+    return Promise.reject(new Error('Too many concurrent downloads'));
+  }
+  activeDownloads++;
+
   return new Promise<void>((resolve, reject) => {
     const outputTemplate = path.join(CACHE_DIR, `${videoId}.%(ext)s`);
 
@@ -83,15 +91,19 @@ function downloadVideo(videoId: string): Promise<void> {
       }
     });
 
+    let timedOut = false;
     const timeout = setTimeout(() => {
+      timedOut = true;
       proc.kill();
-      downloads[videoId] = { status: 'error', percent: 0 };
-      reject(new Error('Download timed out'));
     }, 600000);
 
     proc.on('close', (code: number | null) => {
+      activeDownloads--;
       clearTimeout(timeout);
-      if (code === 0) {
+      if (timedOut) {
+        downloads[videoId] = { status: 'error', percent: 0 };
+        reject(new Error('Download timed out'));
+      } else if (code === 0) {
         downloads[videoId] = { status: 'done', percent: 100 };
         resolve();
       } else {
@@ -101,6 +113,7 @@ function downloadVideo(videoId: string): Promise<void> {
     });
 
     proc.on('error', (err: Error) => {
+      activeDownloads--;
       clearTimeout(timeout);
       downloads[videoId] = { status: 'error', percent: 0 };
       reject(err);
@@ -141,6 +154,10 @@ setInterval(cleanupCache, 60 * 60 * 1000);
 // GET /audio/progress/:videoId
 router.get('/progress/:videoId', (req: Request, res: Response) => {
   const videoId = req.params.videoId as string;
+  if (!isValidVideoId(videoId)) {
+    res.status(400).json({ error: 'Invalid video ID' });
+    return;
+  }
   const cached = !!findCachedFile(videoId);
   if (cached) {
     res.json({ status: 'done', percent: 100 });
@@ -157,6 +174,10 @@ router.get('/progress/:videoId', (req: Request, res: Response) => {
 // GET /audio/:videoId.mp3
 router.get('/:videoId.mp3', async (req: Request, res: Response) => {
   const videoId = req.params.videoId as string;
+  if (!isValidVideoId(videoId)) {
+    res.status(400).json({ error: 'Invalid video ID' });
+    return;
+  }
 
   try {
     let filePath = findCachedFile(videoId);
@@ -214,8 +235,7 @@ router.get('/:videoId.mp3', async (req: Request, res: Response) => {
       fs.createReadStream(filePath).pipe(res);
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[${new Date().toISOString()}] [audio] Error for ${videoId}:`, message);
+    console.error(`[${new Date().toISOString()}] [audio] Error for ${videoId}:`, err instanceof Error ? err.message : String(err));
     clearVideoCache(videoId);
     if (!res.headersSent) {
       res.status(502).json({ error: 'Failed to load audio' });
@@ -236,6 +256,10 @@ router.delete('/cache', (_req: Request, res: Response) => {
 // DELETE /audio/cache/:videoId
 router.delete('/cache/:videoId', (req: Request, res: Response) => {
   const videoId = req.params.videoId as string;
+  if (!isValidVideoId(videoId)) {
+    res.status(400).json({ error: 'Invalid video ID' });
+    return;
+  }
   const count = clearVideoCache(videoId);
   if (count > 0) {
     console.log(`[audio] Cleared cache for ${videoId}`);

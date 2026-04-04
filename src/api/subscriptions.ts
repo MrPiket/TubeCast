@@ -90,9 +90,8 @@ router.post('/', async (req: Request, res: Response) => {
       feedUrl,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[${new Date().toISOString()}] [subscriptions] Error creating subscription:`, message);
-    res.status(500).json({ error: message });
+    console.error(`[${new Date().toISOString()}] [subscriptions] Error creating subscription:`, err instanceof Error ? err.message : String(err));
+    res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
 

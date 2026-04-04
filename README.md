@@ -123,6 +123,18 @@ TubeCast/
 └── docker-compose.yml
 ```
 
+## Disclaimer
+
+This project has been 100% vibe coded. It was built as a fun personal project to scratch my own itch. It comes with absolutely no warranty or guarantees. Use it at your own risk — I'm not responsible for any issues it may cause.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
 ## License
 
-ISC
+[ISC](LICENSE)

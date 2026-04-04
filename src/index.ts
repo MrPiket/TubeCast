@@ -10,9 +10,18 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 app.set('view engine', 'ejs');
 app.set('views', path.join(ROOT_DIR, 'src', 'views'));
 
+// Security headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(express.static(path.join(ROOT_DIR, 'public')));
 
 // API routes

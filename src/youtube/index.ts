@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { ParsedUrl, YtDlpVideo } from '../types';
+import { isValidVideoId } from '../validate';
 
 const execFileAsync = promisify(execFile);
 
@@ -77,6 +78,9 @@ export async function fetchMetadata(url: string, type: string, maxEntries: numbe
 }
 
 export async function fetchVideoMeta(videoId: string): Promise<YtDlpVideo> {
+  if (!isValidVideoId(videoId)) {
+    throw new Error('Invalid video ID');
+  }
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   const args: string[] = [
     '--dump-json',
