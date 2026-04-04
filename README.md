@@ -7,18 +7,19 @@ Turn any YouTube channel, playlist, or video into a podcast RSS feed. Subscribe 
 1. Paste a YouTube URL (channel, playlist, or single video)
 2. TubeCast fetches the video metadata and generates a podcast-compatible RSS feed
 3. Copy the feed URL into any podcast app (Apple Podcasts, Overcast, Pocket Casts, etc.)
-4. Audio is streamed on-demand — converted to MP3 in real time when your podcast app requests it
+4. The latest 5 episodes are automatically downloaded so they're ready instantly when your podcast app requests them
 
 ```
 YouTube URL → TubeCast → RSS Feed → Your Podcast App
-                                         ↓
-                                    Audio on demand
+                  ↓                       ↓
+           Auto-download top 5      Instant playback
 ```
 
 ## Features
 
 - **Channels, Playlists & Single Videos** — supports any YouTube URL format including `@handles`, `/channel/`, `/c/`, `/user/`, and `youtu.be` short links
-- **Real-Time Audio Streaming** — no storage needed; audio is extracted and converted to MP3 via yt-dlp + ffmpeg on the fly
+- **Proactive Downloads** — the 5 most recent episodes per subscription are automatically downloaded after each poll; older cached audio is evicted to keep disk usage bounded
+- **On-Demand Fallback** — episodes outside the top 5 are still available; audio is extracted and converted to MP3 via yt-dlp + ffmpeg when requested
 - **Automatic Polling** — new episodes are discovered automatically on a configurable schedule
 - **Episode Filters** — filter out livestreams, shorts, or set min/max duration thresholds per subscription
 - **iTunes-Compatible RSS** — proper `<itunes:*>` tags, episode artwork, and durations so feeds look great in any podcast app
@@ -48,8 +49,12 @@ brew install ffmpeg yt-dlp
 # Install Node dependencies
 npm install
 
-# Run
+# Build and run
+npm run build
 npm start
+
+# Or run in development mode (no build step)
+npm run dev
 ```
 
 Open **http://localhost:3000**.
@@ -65,6 +70,7 @@ All configuration is via environment variables:
 | `FEED_BASE_URL` | `http://localhost:$PORT` | Public URL used in RSS feed links (set this to your domain in production) |
 | `POLL_INTERVAL_MINUTES` | `15` | How often to check for new episodes |
 | `INITIAL_EPISODES` | `10` | Number of episodes to fetch on first subscription |
+| `AUDIO_CACHE_TTL_HOURS` | `24` | Cached MP3 files older than this are cleaned up |
 
 ## API
 
@@ -84,30 +90,35 @@ All configuration is via environment variables:
 |--------|----------|-------------|
 | `GET` | `/feed/:id.xml` | RSS feed for a subscription |
 | `GET` | `/audio/:videoId.mp3` | Stream audio for a video |
+| `GET` | `/audio/progress/:videoId` | Download progress for a video |
+| `GET` | `/audio/cache/info` | Cache stats (file count, total size) |
+| `DELETE` | `/audio/cache` | Clear entire audio cache |
+| `DELETE` | `/audio/cache/:videoId` | Clear cache for a single video |
 
 ## Project Structure
 
 ```
 TubeCast/
-├── index.js              # Express app entry point
 ├── src/
-│   ├── config.js         # Environment configuration
+│   ├── index.ts              # Express app entry point
+│   ├── config.ts             # Environment configuration
+│   ├── types.ts              # Shared TypeScript interfaces
 │   ├── api/
-│   │   ├── views.js      # Web UI routes
-│   │   ├── subscriptions.js  # REST API
-│   │   ├── feed.js       # RSS feed endpoint
-│   │   └── audio.js      # Audio streaming endpoint
+│   │   ├── views.ts          # Web UI routes
+│   │   ├── subscriptions.ts  # REST API
+│   │   ├── feed.ts           # RSS feed endpoint
+│   │   └── audio.ts          # Audio streaming, caching & download
 │   ├── db/
-│   │   ├── index.js      # Database access layer
-│   │   └── schema.js     # Migrations
+│   │   ├── index.ts          # Database access layer
+│   │   └── schema.ts         # Versioned migrations
 │   ├── rss/
-│   │   └── index.js      # RSS XML generation
+│   │   └── index.ts          # RSS XML generation
 │   ├── scheduler/
-│   │   └── index.js      # Cron-based polling
+│   │   └── index.ts          # Cron polling + proactive downloads
 │   ├── youtube/
-│   │   └── index.js      # yt-dlp wrapper & URL parsing
-│   └── views/            # EJS templates
-├── public/               # Static assets
+│   │   └── index.ts          # yt-dlp wrapper & URL parsing
+│   └── views/                # EJS templates
+├── public/                   # Static assets
 ├── Dockerfile
 └── docker-compose.yml
 ```
