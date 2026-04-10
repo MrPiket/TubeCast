@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/tubecast-logo.svg" alt="TubeCast" width="400">
+  <img src="public/tubecast.png" alt="TubeCast" width="400">
 </p>
 
 <p align="center">
