@@ -1,13 +1,24 @@
-# TubeCast
+<p align="center">
+  <img src="public/tubecast-logo.svg" alt="TubeCast" width="400">
+</p>
 
-Turn any YouTube channel, playlist, or video into a podcast RSS feed. Subscribe in your favorite podcast app and listen to YouTube content as audio — on the go, offline, however you want.
+<p align="center">
+  <strong>Turn YouTube into a podcast.</strong><br>
+  Channels, playlists, and videos — as RSS feeds in your favorite podcast app.
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> · <a href="#features">Features</a> · <a href="#api">API</a> · <a href="#configuration">Configuration</a>
+</p>
+
+---
 
 ## How It Works
 
-1. Paste a YouTube URL (channel, playlist, or single video)
-2. TubeCast fetches the video metadata and generates a podcast-compatible RSS feed
-3. Copy the feed URL into any podcast app (Apple Podcasts, Overcast, Pocket Casts, etc.)
-4. The latest 5 episodes are automatically downloaded so they're ready instantly when your podcast app requests them
+1. **Paste** a YouTube URL — channel, playlist, or single video
+2. **TubeCast** fetches metadata and generates a podcast-compatible RSS feed
+3. **Subscribe** in any podcast app (Apple Podcasts, Overcast, Pocket Casts, etc.)
+4. **Listen** — the 5 most recent episodes are auto-downloaded and ready instantly
 
 ```
 YouTube URL → TubeCast → RSS Feed → Your Podcast App
@@ -18,13 +29,13 @@ YouTube URL → TubeCast → RSS Feed → Your Podcast App
 ## Features
 
 - **Channels, Playlists & Single Videos** — supports any YouTube URL format including `@handles`, `/channel/`, `/c/`, `/user/`, and `youtu.be` short links
-- **Proactive Downloads** — the 5 most recent episodes per subscription are automatically downloaded after each poll; older cached audio is evicted to keep disk usage bounded
-- **On-Demand Fallback** — episodes outside the top 5 are still available; audio is extracted and converted to MP3 via yt-dlp + ffmpeg when requested
-- **Automatic Polling** — new episodes are discovered automatically on a configurable schedule
+- **Proactive Downloads** — the 5 most recent episodes per subscription are automatically downloaded; older cached audio is evicted to save disk space
+- **On-Demand Fallback** — older episodes are still available; audio is extracted and converted to MP3 via yt-dlp + ffmpeg when requested
+- **Automatic Polling** — new episodes discovered on a configurable schedule
 - **Episode Filters** — filter out livestreams, shorts, or set min/max duration thresholds per subscription
-- **iTunes-Compatible RSS** — proper `<itunes:*>` tags, episode artwork, and durations so feeds look great in any podcast app
-- **Web Dashboard** — simple UI to create feeds, manage subscriptions, and browse episodes
-- **REST API** — full CRUD API for subscriptions and filters at `/api/subscriptions`
+- **iTunes-Compatible RSS** — proper `<itunes:*>` tags, artwork, and durations so feeds look great in any podcast app
+- **Web Dashboard** — create feeds, manage subscriptions, and browse episodes
+- **REST API** — full CRUD at `/api/subscriptions`
 - **SQLite Storage** — lightweight, zero-config database with WAL mode and automatic migrations
 - **Docker Ready** — single container with everything included
 
@@ -67,9 +78,9 @@ All configuration is via environment variables:
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
 | `DATA_DIR` | `./data` | Directory for SQLite database |
-| `FEED_BASE_URL` | `http://localhost:$PORT` | Public URL used in RSS feed links (set this to your domain in production) |
+| `FEED_BASE_URL` | `http://localhost:$PORT` | Public URL for RSS feed links (set to your domain in production) |
 | `POLL_INTERVAL_MINUTES` | `15` | How often to check for new episodes |
-| `INITIAL_EPISODES` | `10` | Number of episodes to fetch on first subscription |
+| `INITIAL_EPISODES` | `10` | Episodes to fetch on first subscription |
 | `AUDIO_CACHE_TTL_HOURS` | `24` | Cached MP3 files older than this are cleaned up |
 
 ## API
@@ -90,7 +101,7 @@ All configuration is via environment variables:
 |--------|----------|-------------|
 | `GET` | `/feed/:id.xml` | RSS feed for a subscription |
 | `GET` | `/audio/:videoId.mp3` | Stream audio for a video |
-| `GET` | `/audio/progress/:videoId` | Download progress for a video |
+| `GET` | `/audio/progress/:videoId` | Download progress |
 | `GET` | `/audio/cache/info` | Cache stats (file count, total size) |
 | `DELETE` | `/audio/cache` | Clear entire audio cache |
 | `DELETE` | `/audio/cache/:videoId` | Clear cache for a single video |
