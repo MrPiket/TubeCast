@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+
 *,
 *::before,
 *::after {
@@ -21,7 +23,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   margin: 0;
@@ -62,6 +64,10 @@ header h1 a {
 header h1 a img {
   height: 40px;
   width: auto;
+}
+
+.logo-img-mobile {
+  display: none;
 }
 
 .logo-text {
@@ -491,9 +497,10 @@ footer {
     margin-top: 0.3rem;
   }
 
-  /* Header: show text, hide logo on mobile */
+  /* Header: swap full logo for initials on mobile */
   .logo-img { display: none; }
-  .logo-text { display: inline; }
+  .logo-img-mobile { display: inline; }
+  .logo-text { display: none; }
 
   /* Episodes header card */
   .episodes-header {
