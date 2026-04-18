@@ -31,7 +31,9 @@ YouTube URL → TubeCast → RSS Feed → Your Podcast App
 - **Channels, Playlists & Single Videos** — supports any YouTube URL format including `@handles`, `/channel/`, `/c/`, `/user/`, and `youtu.be` short links
 - **Proactive Downloads** — the 5 most recent episodes per subscription are automatically downloaded; older cached audio is evicted to save disk space
 - **On-Demand Fallback** — older episodes are still available; audio is extracted and converted to MP3 via yt-dlp + ffmpeg when requested
-- **Automatic Polling** — new episodes discovered on a configurable schedule
+- **Automatic Polling** — new episodes discovered on a configurable schedule; all feeds are refreshed on startup
+- **Manual Poll** — force-refresh all subscriptions or a single one from the web dashboard
+- **Auto-Updating yt-dlp** — yt-dlp updates itself on container start and daily at 4 AM to stay compatible with YouTube
 - **Episode Filters** — filter out livestreams, shorts, or set min/max duration thresholds per subscription
 - **iTunes-Compatible RSS** — proper `<itunes:*>` tags, artwork, and durations so feeds look great in any podcast app
 - **Web Dashboard** — create feeds, manage subscriptions, and browse episodes
@@ -93,6 +95,7 @@ All configuration is via environment variables:
 | `GET` | `/api/subscriptions` | List all subscriptions |
 | `GET` | `/api/subscriptions/:id` | Get subscription with episodes |
 | `PATCH` | `/api/subscriptions/:id/filters` | Update filters |
+| `POST` | `/api/subscriptions/:id/poll` | Poll a single subscription for new episodes |
 | `DELETE` | `/api/subscriptions/:id` | Delete subscription |
 
 ### Feeds & Audio
@@ -104,6 +107,7 @@ All configuration is via environment variables:
 | `GET` | `/audio/progress/:videoId` | Download progress |
 | `GET` | `/audio/cache/info` | Cache stats (file count, total size) |
 | `DELETE` | `/audio/cache` | Clear entire audio cache |
+| `POST` | `/api/poll` | Force-poll all subscriptions and reset timer |
 | `DELETE` | `/audio/cache/:videoId` | Clear cache for a single video |
 
 ## Project Structure

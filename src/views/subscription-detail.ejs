@@ -16,10 +16,13 @@
     </nav>
   </header>
   <main>
-    <h2>
-      <span class="badge badge-<%= subscription.type %>"><%= subscription.type %></span>
-      <%= subscription.title %>
-    </h2>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+      <h2 style="margin: 0;">
+        <span class="badge badge-<%= subscription.type %>"><%= subscription.type %></span>
+        <%= subscription.title %>
+      </h2>
+      <button type="button" class="btn btn-primary" id="poll-btn" onclick="pollSubscription()">Poll Now</button>
+    </div>
 
     <div class="card">
       <div class="feed-url">
@@ -201,6 +204,22 @@
 
     function downloadEpisode(link, videoId) {
       pollProgress(videoId);
+    }
+
+    function pollSubscription() {
+      var btn = document.getElementById('poll-btn');
+      btn.disabled = true;
+      btn.textContent = 'Polling…';
+      fetch('/api/subscriptions/<%= subscription.id %>/poll', { method: 'POST' })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          btn.textContent = 'Done!';
+          setTimeout(function() { location.reload(); }, 1000);
+        })
+        .catch(function() {
+          btn.textContent = 'Error';
+          setTimeout(function() { btn.disabled = false; btn.textContent = 'Poll Now'; }, 2000);
+        });
     }
 
     function copyFeedUrl() {

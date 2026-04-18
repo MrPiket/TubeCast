@@ -56,6 +56,7 @@ export async function fetchMetadata(url: string, type: string, maxEntries: numbe
     '--no-download',
     '--playlist-end', String(maxEntries),
     '--no-warnings',
+    '--ignore-errors',
     url,
   ];
 
@@ -66,10 +67,23 @@ export async function fetchMetadata(url: string, type: string, maxEntries: numbe
     }
   }
 
-  const { stdout } = await execFileAsync('yt-dlp', args, {
-    maxBuffer: 50 * 1024 * 1024,
-    timeout: 120000,
-  });
+  let stdout: string;
+  try {
+    const result = await execFileAsync('yt-dlp', args, {
+      maxBuffer: 50 * 1024 * 1024,
+      timeout: 120000,
+    });
+    stdout = result.stdout;
+  } catch (err: unknown) {
+    // With --ignore-errors, yt-dlp may exit non-zero but still produce valid output
+    // for the videos that were available
+    const execErr = err as { stdout?: string; code?: number };
+    if (execErr.stdout && execErr.stdout.trim()) {
+      stdout = execErr.stdout;
+    } else {
+      throw err;
+    }
+  }
 
   const lines = stdout.trim().split('\n').filter(Boolean);
   const entries: YtDlpVideo[] = lines.map(line => JSON.parse(line) as YtDlpVideo);

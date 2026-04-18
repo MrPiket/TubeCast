@@ -16,7 +16,10 @@
     </nav>
   </header>
   <main>
-    <h2>Subscriptions</h2>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+      <h2 style="margin: 0;">Subscriptions</h2>
+      <button type="button" class="btn btn-primary" id="poll-btn" onclick="forcePoll()">Poll Now</button>
+    </div>
 
     <% if (subscriptions.length === 0) { %>
       <div class="empty-state">
@@ -66,6 +69,21 @@
         btn.textContent = 'Copied!';
         setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
       });
+    }
+    function forcePoll() {
+      var btn = document.getElementById('poll-btn');
+      btn.disabled = true;
+      btn.textContent = 'Polling…';
+      fetch('/api/poll', { method: 'POST' })
+        .then(function(res) { return res.json(); })
+        .then(function() {
+          btn.textContent = 'Done!';
+          setTimeout(function() { location.reload(); }, 1000);
+        })
+        .catch(function() {
+          btn.textContent = 'Error';
+          setTimeout(function() { btn.disabled = false; btn.textContent = 'Poll Now'; }, 2000);
+        });
     }
   </script>
 </body>

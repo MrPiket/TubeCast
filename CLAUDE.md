@@ -72,6 +72,7 @@ All config is via environment variables (see `src/config.ts`):
 1. Make changes on a feature branch
 2. Update `README.md` to reflect any user-facing changes (new features, config, API endpoints, etc.)
 3. Create PR and merge to `main`
-4. Build and push Docker image: `docker buildx build --platform linux/amd64 -t mrpiket/tubecast:latest --push .`
+4. Delete the merged feature branch from the remote: `git push origin --delete <branch-name>`
+5. Build and push Docker image: `docker buildx build --platform linux/amd64 -t mrpiket/tubecast:latest --push .`
 
 **Important:** The README must always be kept up to date. Any change that affects features, configuration, API, or project structure should include a corresponding README update in the same PR.

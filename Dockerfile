@@ -23,4 +23,5 @@ RUN npm prune --omit=dev
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+# Update yt-dlp to latest on each container start, then run the app
+CMD yt-dlp -U 2>/dev/null || true; exec node dist/index.js

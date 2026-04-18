@@ -1,4 +1,6 @@
 import cron from 'node-cron';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import * as db from '../db';
 import * as yt from '../youtube';
@@ -6,12 +8,18 @@ import config from '../config';
 import { Subscription, YtDlpVideo } from '../types';
 import { findCachedFile, clearVideoCache, downloadVideo } from '../api/audio';
 
-export function start(): void {
-  const cronExpr = `*/${config.POLL_INTERVAL_MINUTES} * * * *`;
+const execFileAsync = promisify(execFile);
 
-  console.log(`[scheduler] Polling every ${config.POLL_INTERVAL_MINUTES} minutes`);
+let scheduledTask: ReturnType<typeof cron.schedule> | null = null;
+let polling = false;
 
-  cron.schedule(cronExpr, async () => {
+export async function pollAll(): Promise<void> {
+  if (polling) {
+    console.log('[scheduler] Poll already in progress, skipping');
+    return;
+  }
+  polling = true;
+  try {
     console.log(`[scheduler] Starting poll at ${new Date().toISOString()}`);
 
     const subs = db.getAllSubscriptions();
@@ -26,7 +34,48 @@ export function start(): void {
     }
 
     console.log(`[scheduler] Poll complete at ${new Date().toISOString()}`);
+  } finally {
+    polling = false;
+  }
+}
+
+export function start(): void {
+  const cronExpr = `*/${config.POLL_INTERVAL_MINUTES} * * * *`;
+
+  console.log(`[scheduler] Polling every ${config.POLL_INTERVAL_MINUTES} minutes`);
+
+  // Run initial poll on startup
+  pollAll().catch(err => {
+    console.error('[scheduler] Initial poll failed:', err instanceof Error ? err.message : String(err));
   });
+
+  scheduledTask = cron.schedule(cronExpr, () => {
+    pollAll();
+  });
+
+  // Update yt-dlp daily at 4:00 AM
+  cron.schedule('0 4 * * *', () => {
+    updateYtDlp();
+  });
+}
+
+export async function forcePoll(): Promise<void> {
+  // Reset the cron timer by stopping and restarting the task
+  if (scheduledTask) {
+    scheduledTask.stop();
+  }
+
+  await pollAll();
+
+  if (scheduledTask) {
+    scheduledTask.start();
+  }
+}
+
+export async function pollSingle(subId: string): Promise<void> {
+  const sub = db.getSubscription(subId);
+  if (!sub) throw new Error(`Subscription ${subId} not found`);
+  await pollSubscription(sub);
 }
 
 async function pollSubscription(sub: Subscription): Promise<void> {
@@ -99,6 +148,17 @@ async function proactivelyDownloadEpisodes(sub: Subscription): Promise<void> {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[scheduler] Failed to download ${ep.video_id}: ${message}`);
     }
+  }
+}
+
+async function updateYtDlp(): Promise<void> {
+  try {
+    console.log('[scheduler] Checking for yt-dlp updates...');
+    const { stdout } = await execFileAsync('yt-dlp', ['-U'], { timeout: 60000 });
+    console.log(`[scheduler] yt-dlp update: ${stdout.trim().split('\n').pop()}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[scheduler] yt-dlp update failed: ${message}`);
   }
 }
 

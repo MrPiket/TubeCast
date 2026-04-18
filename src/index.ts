@@ -44,8 +44,28 @@ app.use('/', viewsRouter);
 import { getDb } from './db';
 getDb();
 
+// Poll API endpoint
+import { start as startScheduler, forcePoll, pollSingle } from './scheduler';
+app.post('/api/poll', async (_req, res) => {
+  try {
+    await forcePoll();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[poll] Force poll failed:', err instanceof Error ? err.message : String(err));
+    res.status(500).json({ error: 'Poll failed' });
+  }
+});
+app.post('/api/subscriptions/:id/poll', async (req, res) => {
+  try {
+    await pollSingle(req.params.id as string);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[poll] Single poll failed:', err instanceof Error ? err.message : String(err));
+    res.status(500).json({ error: 'Poll failed' });
+  }
+});
+
 // Start scheduler
-import { start as startScheduler } from './scheduler';
 startScheduler();
 
 app.listen(config.PORT, () => {
