@@ -26,7 +26,7 @@ All config is via environment variables (see `src/config.ts`):
 - `FEED_BASE_URL` (default `http://localhost:$PORT`) — base URL for generated feed/audio links
 - `DATA_DIR` (default `./data`) — where SQLite DB and audio cache live
 - `POLL_INTERVAL_MINUTES` (default 15) — how often the scheduler checks for new videos
-- `INITIAL_EPISODES` (default 10) — how many videos to fetch when creating a subscription
+- `INITIAL_EPISODES` (default 15) — how many videos to fetch when creating a subscription
 - `AUDIO_CACHE_TTL_HOURS` (default 24) — cached mp3 files older than this are cleaned up
 
 ## Architecture
@@ -34,9 +34,9 @@ All config is via environment variables (see `src/config.ts`):
 **Entry point:** `src/index.ts` — sets up Express, registers routes, initializes DB, starts the cron scheduler.
 
 **Route layers (all under `src/api/`):**
-- `subscriptions.ts` — JSON API (`/api/subscriptions`) for CRUD on subscriptions and episode filters
+- `subscriptions.ts` — JSON API (`/api/subscriptions`) for CRUD on subscriptions, episode filters, and paginated episode loading (`/load-more`)
 - `feed.ts` — serves RSS XML at `/feed/:id.xml`
-- `audio.ts` — on-demand audio download and streaming at `/audio/:videoId.mp3`, with progress tracking and disk cache under `DATA_DIR/audio-cache/`
+- `audio.ts` — on-demand audio download and streaming at `/audio/:videoId.mp3`, with progress tracking, pre-caching (`POST /audio/cache/:videoId`), and disk cache under `DATA_DIR/audio-cache/`
 - `views.ts` — server-rendered web UI at `/`, `/subscriptions`, `/subscriptions/:id` (duplicates some subscription-creation logic from the API route)
 
 **Core modules:**
@@ -54,7 +54,9 @@ All config is via environment variables (see `src/config.ts`):
 - Timestamps are stored as Unix epoch seconds (not milliseconds) throughout the codebase
 - Boolean fields in SQLite use `0`/`1` integers; TypeScript types reflect this with `0 | 1`
 - The scheduler proactively downloads audio for the 5 most recent filtered episodes per subscription; older cached files beyond the top 5 are evicted automatically
-- Audio for episodes outside the top 5 is still available on-demand via `/audio/:videoId.mp3`
+- Audio for episodes outside the top 5 is still available on-demand via `/audio/:videoId.mp3` or can be pre-cached via `POST /audio/cache/:videoId`
+- Subscriptions initially fetch `INITIAL_EPISODES` (15) entries; additional episodes are loaded in batches of 10 via the "Load More" button / `POST /api/subscriptions/:id/load-more`
+- `fetchMetadata` supports `startEntry` parameter for yt-dlp `--playlist-start` / `--playlist-end` pagination
 - The `yt-dlp` process is spawned directly (not via a library) in both `youtube/` (metadata) and `api/audio.ts` (download)
 
 ## Docker

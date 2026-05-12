@@ -69,12 +69,18 @@
           </span>
         <% } %>
       </div>
-      <% if (cachedCount > 0) { %>
-        <form method="POST" action="/subscriptions/<%= subscription.id %>/clear-all-cache"
-              onsubmit="return confirm('Clear all cached audio files for this subscription?')">
-          <button type="submit" class="btn btn-danger">Clear All Cache</button>
-        </form>
-      <% } %>
+      <div style="display: flex; gap: 0.5rem;">
+        <% var uncachedCount = episodes.filter(function(e) { return !e.cached; }).length; %>
+        <% if (uncachedCount > 0) { %>
+          <button type="button" class="btn btn-secondary" id="cache-all-btn" onclick="cacheAllEpisodes()">Cache All (<%= uncachedCount %>)</button>
+        <% } %>
+        <% if (cachedCount > 0) { %>
+          <form method="POST" action="/subscriptions/<%= subscription.id %>/clear-all-cache"
+                onsubmit="return confirm('Clear all cached audio files for this subscription?')">
+            <button type="submit" class="btn btn-danger">Clear All Cache</button>
+          </form>
+        <% } %>
+      </div>
     </div>
 
     <% if (episodes.length === 0) { %>
@@ -102,6 +108,9 @@
                 <div class="episode-actions">
                   <button type="button" class="btn-icon" onclick="playEpisode(this, '<%= ep.video_id %>')" title="Play">&#9654;</button>
                   <a href="/audio/<%= ep.video_id %>.mp3" download="<%= ep.title.replace(/"/g, '') %>.mp3" class="btn-icon" title="Download" onclick="downloadEpisode(this, '<%= ep.video_id %>')">&#11015;</a>
+                  <% if (!ep.cached) { %>
+                    <button type="button" class="btn-icon" onclick="cacheEpisode('<%= ep.video_id %>')" title="Cache" id="cache-btn-<%= ep.video_id %>">&#128229;</button>
+                  <% } %>
                 </div>
                 <div class="ep-meta">
                   <span><%= ep.published_at ? new Date(ep.published_at * 1000).toLocaleDateString() : '—' %></span>
@@ -136,6 +145,11 @@
           <% }); %>
         </tbody>
       </table>
+      <% if (subscription.type !== 'video') { %>
+        <div style="text-align: center; margin-top: 1rem;" id="load-more-container">
+          <button type="button" class="btn btn-secondary" id="load-more-btn" onclick="loadMore()">Load More</button>
+        </div>
+      <% } %>
     <% } %>
     <div id="player-bar" style="display:none;">
       <div id="player-title"></div>
@@ -219,6 +233,71 @@
         .catch(function() {
           btn.textContent = 'Error';
           setTimeout(function() { btn.disabled = false; btn.textContent = 'Poll Now'; }, 2000);
+        });
+    }
+
+    function cacheEpisode(videoId) {
+      var btn = document.getElementById('cache-btn-' + videoId);
+      if (btn) btn.disabled = true;
+      fetch('/audio/cache/' + videoId, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.status === 'already_cached') {
+            location.reload();
+          } else {
+            pollProgress(videoId);
+          }
+        })
+        .catch(function() {
+          if (btn) btn.disabled = false;
+        });
+    }
+
+    function cacheAllEpisodes() {
+      var btn = document.getElementById('cache-all-btn');
+      btn.disabled = true;
+      btn.textContent = 'Caching…';
+      var uncached = [<% episodes.filter(function(e) { return !e.cached; }).forEach(function(ep, i) { %><% if (i > 0) { %>,<% } %>'<%= ep.video_id %>'<% }); %>];
+      var started = 0;
+      function cacheNext() {
+        if (started >= uncached.length) {
+          btn.textContent = 'All queued!';
+          return;
+        }
+        var videoId = uncached[started];
+        started++;
+        btn.textContent = 'Caching ' + started + '/' + uncached.length + '…';
+        fetch('/audio/cache/' + videoId, { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function() {
+            pollProgress(videoId);
+            cacheNext();
+          })
+          .catch(function() { cacheNext(); });
+      }
+      cacheNext();
+    }
+
+    function loadMore() {
+      var btn = document.getElementById('load-more-btn');
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+      fetch('/api/subscriptions/<%= subscription.id %>/load-more', { method: 'POST' })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (!data.hasMore && data.newCount === 0) {
+            btn.textContent = 'All loaded';
+            setTimeout(function() {
+              document.getElementById('load-more-container').style.display = 'none';
+            }, 1500);
+          } else {
+            btn.textContent = '+' + data.newCount + ' episodes';
+            setTimeout(function() { location.reload(); }, 1000);
+          }
+        })
+        .catch(function() {
+          btn.textContent = 'Error';
+          setTimeout(function() { btn.disabled = false; btn.textContent = 'Load More'; }, 2000);
         });
     }
 

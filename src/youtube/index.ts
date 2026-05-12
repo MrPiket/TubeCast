@@ -50,28 +50,30 @@ export function parseYoutubeUrl(url: string): ParsedUrl {
   throw new Error('Could not parse YouTube URL');
 }
 
-export async function fetchMetadata(url: string, type: string, maxEntries: number = 10): Promise<YtDlpVideo[]> {
+export async function fetchMetadata(url: string, type: string, maxEntries: number = 0, startEntry: number = 1): Promise<YtDlpVideo[]> {
   const args: string[] = [
     '--dump-json',
     '--no-download',
-    '--playlist-end', String(maxEntries),
     '--no-warnings',
     '--ignore-errors',
     url,
   ];
 
-  if (type === 'video') {
-    const idx = args.indexOf('--playlist-end');
-    if (idx !== -1) {
-      args.splice(idx, 2);
+  if (type !== 'video') {
+    if (startEntry > 1) {
+      args.splice(2, 0, '--playlist-start', String(startEntry));
+    }
+    if (maxEntries > 0) {
+      const end = startEntry > 1 ? startEntry + maxEntries - 1 : maxEntries;
+      args.splice(2, 0, '--playlist-end', String(end));
     }
   }
 
   let stdout: string;
   try {
     const result = await execFileAsync('yt-dlp', args, {
-      maxBuffer: 50 * 1024 * 1024,
-      timeout: 120000,
+      maxBuffer: 100 * 1024 * 1024,
+      timeout: 300000,
     });
     stdout = result.stdout;
   } catch (err: unknown) {

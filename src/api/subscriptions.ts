@@ -145,6 +145,59 @@ router.patch('/:id/filters', (req: Request, res: Response) => {
   res.json(updated);
 });
 
+// POST /api/subscriptions/:id/load-more
+const LOAD_MORE_BATCH = 10;
+router.post('/:id/load-more', async (req: Request, res: Response) => {
+  try {
+    const sub = db.getSubscription(req.params.id as string);
+    if (!sub) {
+      res.status(404).json({ error: 'Subscription not found' });
+      return;
+    }
+
+    if (sub.type === 'video') {
+      res.json({ newCount: 0, hasMore: false });
+      return;
+    }
+
+    const currentCount = db.getEpisodesBySubscription(sub.id).length;
+    const startEntry = currentCount + 1;
+
+    const resolvedUrl = yt.resolveUrl({ type: sub.type, youtubeId: sub.youtube_id });
+    const entries = await yt.fetchMetadata(resolvedUrl, sub.type, LOAD_MORE_BATCH, startEntry);
+    const now = Math.floor(Date.now() / 1000);
+    let newCount = 0;
+
+    for (const entry of entries) {
+      const videoId = yt.extractVideoId(entry);
+      if (!videoId) continue;
+      if (db.episodeExists(videoId, sub.id)) continue;
+
+      db.insertEpisode({
+        id: uuidv4(),
+        subscription_id: sub.id,
+        video_id: videoId,
+        title: entry.title || 'Untitled',
+        description: (entry.description || '').slice(0, 2000),
+        thumbnail: entry.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        published_at: entry.timestamp || (entry.upload_date ? parseDateToTimestamp(entry.upload_date) : now),
+        duration_sec: entry.duration || null,
+        is_live: yt.isLive(entry),
+        is_short: yt.isShort(entry),
+        created_at: now,
+      });
+      newCount++;
+    }
+
+    const hasMore = entries.length === LOAD_MORE_BATCH;
+    console.log(`[subscriptions] Load-more for "${sub.title}": ${newCount} new episodes (start=${startEntry}, hasMore=${hasMore})`);
+    res.json({ newCount, hasMore });
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] [subscriptions] Error in load-more:`, err instanceof Error ? err.message : String(err));
+    res.status(500).json({ error: 'Failed to load more episodes' });
+  }
+});
+
 // DELETE /api/subscriptions/:id
 router.delete('/:id', (req: Request, res: Response) => {
   const sub = db.getSubscription(req.params.id as string);

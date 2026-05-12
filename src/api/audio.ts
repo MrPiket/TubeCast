@@ -243,6 +243,43 @@ router.get('/:videoId.mp3', async (req: Request, res: Response) => {
   }
 });
 
+// POST /audio/cache/:videoId — pre-cache without streaming
+router.post('/cache/:videoId', async (req: Request, res: Response) => {
+  const videoId = req.params.videoId as string;
+  if (!isValidVideoId(videoId)) {
+    res.status(400).json({ error: 'Invalid video ID' });
+    return;
+  }
+
+  if (findCachedFile(videoId)) {
+    res.json({ status: 'already_cached' });
+    return;
+  }
+
+  if (downloads[videoId] && downloads[videoId].status === 'downloading') {
+    res.json({ status: 'in_progress' });
+    return;
+  }
+
+  try {
+    downloadVideo(videoId).then(() => {
+      const filePath = findCachedFile(videoId);
+      if (filePath) {
+        const cleanPath = path.join(CACHE_DIR, `${videoId}.mp3`);
+        if (filePath !== cleanPath) {
+          fs.renameSync(filePath, cleanPath);
+        }
+      }
+      setTimeout(() => { delete downloads[videoId]; }, 60000);
+    }).catch((err) => {
+      console.error(`[audio] Cache download failed for ${videoId}:`, err instanceof Error ? err.message : String(err));
+    });
+    res.json({ status: 'started' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to start download' });
+  }
+});
+
 // DELETE /audio/cache
 router.delete('/cache', (_req: Request, res: Response) => {
   let count = 0;

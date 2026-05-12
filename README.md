@@ -30,7 +30,9 @@ YouTube URL → TubeCast → RSS Feed → Your Podcast App
 
 - **Channels, Playlists & Single Videos** — supports any YouTube URL format including `@handles`, `/channel/`, `/c/`, `/user/`, and `youtu.be` short links
 - **Proactive Downloads** — the 5 most recent episodes per subscription are automatically downloaded; older cached audio is evicted to save disk space
+- **On-Demand Cache** — pre-cache any episode from the dashboard without downloading to your device; cache individual episodes or all at once
 - **On-Demand Fallback** — older episodes are still available; audio is extracted and converted to MP3 via yt-dlp + ffmpeg when requested
+- **Load More** — subscriptions start with 15 episodes; load more in batches of 10 from the subscription detail page until all episodes are fetched
 - **Automatic Polling** — new episodes discovered on a configurable schedule; all feeds are refreshed on startup
 - **Manual Poll** — force-refresh all subscriptions or a single one from the web dashboard
 - **Auto-Updating yt-dlp** — yt-dlp updates itself on container start and daily at 4 AM to stay compatible with YouTube
@@ -82,7 +84,7 @@ All configuration is via environment variables:
 | `DATA_DIR` | `./data` | Directory for SQLite database |
 | `FEED_BASE_URL` | `http://localhost:$PORT` | Public URL for RSS feed links (set to your domain in production) |
 | `POLL_INTERVAL_MINUTES` | `15` | How often to check for new episodes |
-| `INITIAL_EPISODES` | `10` | Episodes to fetch on first subscription |
+| `INITIAL_EPISODES` | `15` | Episodes to fetch on first subscription |
 | `AUDIO_CACHE_TTL_HOURS` | `24` | Cached MP3 files older than this are cleaned up |
 
 ## API
@@ -96,6 +98,7 @@ All configuration is via environment variables:
 | `GET` | `/api/subscriptions/:id` | Get subscription with episodes |
 | `PATCH` | `/api/subscriptions/:id/filters` | Update filters |
 | `POST` | `/api/subscriptions/:id/poll` | Poll a single subscription for new episodes |
+| `POST` | `/api/subscriptions/:id/load-more` | Fetch the next 10 episodes from the source |
 | `DELETE` | `/api/subscriptions/:id` | Delete subscription |
 
 ### Feeds & Audio
@@ -105,6 +108,7 @@ All configuration is via environment variables:
 | `GET` | `/feed/:id.xml` | RSS feed for a subscription |
 | `GET` | `/audio/:videoId.mp3` | Stream audio for a video |
 | `GET` | `/audio/progress/:videoId` | Download progress |
+| `POST` | `/audio/cache/:videoId` | Pre-cache audio without streaming |
 | `GET` | `/audio/cache/info` | Cache stats (file count, total size) |
 | `DELETE` | `/audio/cache` | Clear entire audio cache |
 | `POST` | `/api/poll` | Force-poll all subscriptions and reset timer |
