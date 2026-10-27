@@ -72,7 +72,7 @@ export function getEpisodesBySubscription(subscriptionId: string): Episode[] {
 }
 
 export function getFilteredEpisodes(subscription: Subscription): Episode[] {
-  const conditions: string[] = ['subscription_id = ?'];
+  const conditions: string[] = ['subscription_id = ?', 'unavailable = 0'];
   const params: (string | number)[] = [subscription.id];
 
   if (!subscription.filter_lives) {
@@ -101,6 +101,29 @@ export function episodeExists(videoId: string, subscriptionId: string): boolean 
 
 export function incrementDownloadCount(videoId: string): void {
   getDb().prepare('UPDATE episodes SET download_count = download_count + 1 WHERE video_id = ?').run(videoId);
+}
+
+// --- Download failures ---
+
+export function recordDownloadFailure(videoId: string, error: string, permanent: boolean): void {
+  getDb().prepare(`
+    UPDATE episodes
+    SET download_failures = download_failures + 1,
+        last_error = ?,
+        unavailable = CASE WHEN ? OR download_failures + 1 >= ? THEN 1 ELSE unavailable END
+    WHERE video_id = ?
+  `).run(error.slice(0, 500), permanent ? 1 : 0, config.MAX_DOWNLOAD_ATTEMPTS, videoId);
+}
+
+export function clearDownloadFailures(videoId: string): void {
+  getDb()
+    .prepare('UPDATE episodes SET download_failures = 0, unavailable = 0, last_error = NULL WHERE video_id = ?')
+    .run(videoId);
+}
+
+export function isUnavailable(videoId: string): boolean {
+  const row = getDb().prepare('SELECT 1 FROM episodes WHERE video_id = ? AND unavailable = 1').get(videoId);
+  return !!row;
 }
 
 export function closeDb(): void {

@@ -44,6 +44,16 @@ const MIGRATIONS: Migration[] = [
       CREATE UNIQUE INDEX idx_episodes_video ON episodes(video_id, subscription_id);
     `,
   },
+  {
+    // Track download failures so an episode YouTube has removed stops being
+    // retried on every poll, forever.
+    version: 2,
+    up: `
+      ALTER TABLE episodes ADD COLUMN download_failures INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE episodes ADD COLUMN unavailable INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE episodes ADD COLUMN last_error TEXT;
+    `,
+  },
 ];
 
 export function migrate(db: Database.Database): void {
@@ -61,8 +71,10 @@ export function migrate(db: Database.Database): void {
 
   for (const migration of MIGRATIONS) {
     if (migration.version > currentVersion) {
-      db.exec(migration.up);
-      db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(migration.version);
+      db.transaction(() => {
+        db.exec(migration.up);
+        db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(migration.version);
+      })();
       console.log(`[db] Applied migration v${migration.version}`);
     }
   }

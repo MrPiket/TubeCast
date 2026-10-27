@@ -130,6 +130,7 @@ router.get('/subscriptions/:id', (req: Request, res: Response) => {
 
   res.render('subscription-detail', {
     subscription: sub, episodes: episodesWithCache, feedUrl, cachedCount, cachedSize,
+    audioFormat: config.AUDIO_FORMAT,
   });
 });
 

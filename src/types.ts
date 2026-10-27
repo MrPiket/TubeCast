@@ -26,6 +26,9 @@ export interface Episode {
   is_live: 0 | 1;
   is_short: 0 | 1;
   download_count: number;
+  download_failures: number;
+  unavailable: 0 | 1;
+  last_error: string | null;
   created_at: number;
 }
 
@@ -106,6 +109,8 @@ export interface FilterInput {
   filter_max_duration?: number;
 }
 
+export type AudioFormat = 'm4a' | 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'vorbis';
+
 export interface Config {
   DATA_DIR: string;
   PORT: number;
@@ -113,5 +118,9 @@ export interface Config {
   POLL_INTERVAL_MINUTES: number;
   INITIAL_EPISODES: number;
   AUDIO_CACHE_TTL_HOURS: number;
+  AUDIO_FORMAT: AudioFormat;
+  AUDIO_MIME_TYPE: string;
+  AUDIO_SOURCE_EXT: string;
+  MAX_DOWNLOAD_ATTEMPTS: number;
   DB_PATH: string;
 }

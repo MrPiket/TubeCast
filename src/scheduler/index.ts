@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as yt from '../youtube';
 import config from '../config';
 import { Subscription, YtDlpVideo } from '../types';
-import { findCachedFile, clearVideoCache, downloadVideo } from '../api/audio';
+import { findCachedFile, clearVideoCache, downloadVideo, isPermanentDownloadError } from '../api/audio';
 
 const execFileAsync = promisify(execFile);
 
@@ -144,9 +144,19 @@ async function proactivelyDownloadEpisodes(sub: Subscription): Promise<void> {
       console.log(`[scheduler] Proactively downloading "${ep.title}" (${ep.video_id})`);
       await downloadVideo(ep.video_id);
       console.log(`[scheduler] Downloaded "${ep.title}" (${ep.video_id})`);
+      db.clearDownloadFailures(ep.video_id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[scheduler] Failed to download ${ep.video_id}: ${message}`);
+      const permanent = isPermanentDownloadError(message);
+      db.recordDownloadFailure(ep.video_id, message, permanent);
+
+      const attempts = ep.download_failures + 1;
+      const giveUp = permanent || attempts >= config.MAX_DOWNLOAD_ATTEMPTS;
+      const suffix = giveUp
+        ? ' — giving up, episode marked unavailable'
+        : ` (attempt ${attempts}/${config.MAX_DOWNLOAD_ATTEMPTS})`;
+
+      console.error(`[scheduler] Failed to download ${ep.video_id}: ${message}${suffix}`);
     }
   }
 }

@@ -31,7 +31,10 @@ YouTube URL → TubeCast → RSS Feed → Your Podcast App
 - **Channels, Playlists & Single Videos** — supports any YouTube URL format including `@handles`, `/channel/`, `/c/`, `/user/`, and `youtu.be` short links
 - **Proactive Downloads** — the 5 most recent episodes per subscription are automatically downloaded; older cached audio is evicted to save disk space
 - **On-Demand Cache** — pre-cache any episode from the dashboard without downloading to your device; cache individual episodes or all at once
-- **On-Demand Fallback** — older episodes are still available; audio is extracted and converted to MP3 via yt-dlp + ffmpeg when requested
+- **On-Demand Fallback** — older episodes are still available; audio is extracted via yt-dlp when requested
+- **No Re-Encoding** — audio is saved as M4A by default and the AAC source is preferred when YouTube offers one, so yt-dlp copies the stream instead of running it through ffmpeg. Set `AUDIO_FORMAT=mp3` for the old behaviour at the cost of a full transcode per episode
+- **Give Up On Dead Videos** — an episode YouTube has removed is retried a few times, then marked unavailable and dropped from the feed instead of being re-attempted on every poll forever
+- **Atomic Downloads** — audio is staged outside the cache and moved in only once yt-dlp exits cleanly, so an interrupted download can never leave a truncated file that looks cached
 - **Load More** — subscriptions start with 15 episodes; load more in batches of 10 from the subscription detail page until all episodes are fetched
 - **Automatic Polling** — new episodes discovered on a configurable schedule; all feeds are refreshed on startup
 - **Manual Poll** — force-refresh all subscriptions or a single one from the web dashboard
@@ -55,7 +58,12 @@ Open **http://localhost:5151** and paste a YouTube URL.
 
 ### Without Docker
 
-Requires [Node.js](https://nodejs.org/) 20+, [ffmpeg](https://ffmpeg.org/), and [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Requires [Node.js](https://nodejs.org/) 22+, [ffmpeg](https://ffmpeg.org/), and [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+
+YouTube extraction now needs a JavaScript runtime. Node 22+ qualifies, but
+yt-dlp only enables Deno by default — add `--js-runtimes node` to your
+[yt-dlp config file](https://github.com/yt-dlp/yt-dlp/wiki/EJS) or some formats
+will be silently unavailable. The Docker image does this for you.
 
 ```bash
 # Install system dependencies (macOS)
@@ -85,7 +93,21 @@ All configuration is via environment variables:
 | `FEED_BASE_URL` | `http://localhost:$PORT` | Public URL for RSS feed links (set to your domain in production) |
 | `POLL_INTERVAL_MINUTES` | `15` | How often to check for new episodes |
 | `INITIAL_EPISODES` | `15` | Episodes to fetch on first subscription |
-| `AUDIO_CACHE_TTL_HOURS` | `24` | Cached MP3 files older than this are cleaned up |
+| `AUDIO_CACHE_TTL_HOURS` | `24` | Cached audio files older than this are cleaned up |
+| `AUDIO_FORMAT` | `m4a` | Audio format yt-dlp produces. `m4a` avoids re-encoding; `mp3`, `opus`, `aac`, `flac`, `wav` and `vorbis` are also accepted |
+| `MAX_DOWNLOAD_ATTEMPTS` | `3` | Failed downloads after which an episode is marked unavailable |
+
+> Changing `AUDIO_FORMAT` evicts cached files in the previous format on the next
+> startup; they are re-downloaded on the following poll. Feed URLs published
+> before the change keep working — the audio endpoint ignores the extension in
+> the request and serves whatever is cached with its real MIME type.
+>
+> The source format is chosen to match the target (`bestaudio[ext=m4a]` for
+> `m4a`), because YouTube's highest-bitrate audio is usually Opus and picking it
+> would force a conversion anyway. When no matching source exists yt-dlp falls
+> back to `bestaudio` and converts. The 128K quality setting therefore only
+> applies on the conversion path — a copied stream keeps the source bitrate,
+> typically 129 kbps AAC.
 
 ## API
 
@@ -106,7 +128,7 @@ All configuration is via environment variables:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/feed/:id.xml` | RSS feed for a subscription |
-| `GET` | `/audio/:videoId.mp3` | Stream audio for a video |
+| `GET` | `/audio/:videoId.:ext` | Stream audio for a video (the extension is ignored; the cached file's real format is served) |
 | `GET` | `/audio/progress/:videoId` | Download progress |
 | `POST` | `/audio/cache/:videoId` | Pre-cache audio without streaming |
 | `GET` | `/audio/cache/info` | Cache stats (file count, total size) |
