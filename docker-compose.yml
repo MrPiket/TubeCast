@@ -1,6 +1,10 @@
 services:
   app:
     build: .
+    # yt-dlp spawns ffmpeg; when yt-dlp dies first, ffmpeg is reparented to
+    # PID 1. Node does not reap orphans, so without an init they pile up as
+    # zombies. Docker's init (tini) reaps them.
+    init: true
     ports:
       - "5151:5151"
     volumes:

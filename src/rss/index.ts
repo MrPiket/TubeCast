@@ -36,13 +36,13 @@ export function generateFeed(subscription: Subscription, episodes: Episode[]): s
   const feedUrl = `${config.FEED_BASE_URL}/feed/${subscription.id}.xml`;
 
   const items = episodes.map(ep => {
-    const audioUrl = `${config.FEED_BASE_URL}/audio/${escXml(ep.video_id)}.mp3`;
+    const audioUrl = `${config.FEED_BASE_URL}/audio/${escXml(ep.video_id)}.${config.AUDIO_FORMAT}`;
     return `    <item>
       <title>${escXml(ep.title)}</title>
       <description><![CDATA[${escCdata(ep.description)}]]></description>
       <guid isPermaLink="false">yt:${escXml(ep.video_id)}</guid>
       <pubDate>${toRfc2822(ep.published_at)}</pubDate>
-      <enclosure url="${audioUrl}" type="audio/mpeg" length="0"/>
+      <enclosure url="${audioUrl}" type="${config.AUDIO_MIME_TYPE}" length="0"/>
       <itunes:duration>${formatDuration(ep.duration_sec)}</itunes:duration>
       <itunes:image href="${escXml(ep.thumbnail)}"/>
       <itunes:explicit>false</itunes:explicit>

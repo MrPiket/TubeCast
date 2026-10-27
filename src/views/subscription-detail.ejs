@@ -107,7 +107,7 @@
                    target="_blank" rel="noopener"><%= ep.title %></a>
                 <div class="episode-actions">
                   <button type="button" class="btn-icon" onclick="playEpisode(this, '<%= ep.video_id %>')" title="Play">&#9654;</button>
-                  <a href="/audio/<%= ep.video_id %>.mp3" download="<%= ep.title.replace(/"/g, '') %>.mp3" class="btn-icon" title="Download" onclick="downloadEpisode(this, '<%= ep.video_id %>')">&#11015;</a>
+                  <a href="/audio/<%= ep.video_id %>.<%= audioFormat %>" download="<%= ep.title.replace(/"/g, '') %>.<%= audioFormat %>" class="btn-icon" title="Download" onclick="downloadEpisode(this, '<%= ep.video_id %>')">&#11015;</a>
                   <% if (!ep.cached) { %>
                     <button type="button" class="btn-icon" onclick="cacheEpisode('<%= ep.video_id %>')" title="Cache" id="cache-btn-<%= ep.video_id %>">&#128229;</button>
                   <% } %>
@@ -117,6 +117,7 @@
                   <span><%= ep.duration_sec ? formatDuration(ep.duration_sec) : '' %></span>
                   <% if (ep.is_live) { %><span class="badge" style="background:#FFEBEE;color:#C62828;">live</span><% } %>
                   <% if (ep.is_short) { %><span class="badge" style="background:#E8F5E9;color:#2E7D32;">short</span><% } %>
+                  <% if (ep.unavailable) { %><span class="badge" style="background:#ECEFF1;color:#546E7A;" title="<%= ep.last_error || 'Audio could not be downloaded' %>">unavailable</span><% } %>
                 </div>
               </td>
               <td><%= ep.published_at ? new Date(ep.published_at * 1000).toLocaleDateString() : '—' %></td>
@@ -140,6 +141,7 @@
               <td>
                 <% if (ep.is_live) { %><span class="badge" style="background:#FFEBEE;color:#C62828;">live</span><% } %>
                 <% if (ep.is_short) { %><span class="badge" style="background:#E8F5E9;color:#2E7D32;">short</span><% } %>
+                <% if (ep.unavailable) { %><span class="badge" style="background:#ECEFF1;color:#546E7A;" title="<%= ep.last_error || 'Audio could not be downloaded' %>">unavailable</span><% } %>
               </td>
             </tr>
           <% }); %>
@@ -212,7 +214,7 @@
       // Start polling progress
       pollProgress(videoId);
 
-      player.src = '/audio/' + videoId + '.mp3';
+      player.src = '/audio/' + videoId + '.<%= audioFormat %>';
       player.play();
     }
 
